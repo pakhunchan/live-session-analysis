@@ -81,16 +81,21 @@ export function estimateGaze(landmarks: FaceLandmark[]): GazeEstimate {
   const rightEar = safeLandmark(landmarks, RIGHT_EAR)!;
 
   // Yaw: nose position relative to ear midpoint
+  // Landmarks 234/454 are cheek-boundary points (not ear tips), so the
+  // baseline is narrow.  A scaling factor of 25 (not 45) prevents a
+  // forward-facing person from registering 40°+ yaw.
   const earMidX = (leftEar.x + rightEar.x) / 2;
   const earWidth = rightEar.x - leftEar.x;
   const headYawDeg = earWidth > 1e-6
-    ? ((nose.x - earMidX) / (earWidth / 2)) * 45
+    ? ((nose.x - earMidX) / (earWidth / 2)) * 25
     : 0;
 
-  // Pitch: nose-chin angle relative to vertical
+  // Pitch: nose-chin depth ratio.  MediaPipe z-values are noisy and the
+  // nose always protrudes, so we use a conservative multiplier of 35
+  // (not 60) to avoid false high-pitch readings.
   const faceHeight = chin.y - nose.y;
   const headPitchDeg = faceHeight > 1e-6
-    ? ((nose.z - chin.z) / faceHeight) * 60
+    ? ((nose.z - chin.z) / faceHeight) * 35
     : 0;
 
   return { horizontalRatio, verticalRatio, headYawDeg, headPitchDeg };

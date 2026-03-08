@@ -4,13 +4,14 @@ import ParticipantCard from './ParticipantCard';
 import SessionStatusBar from './SessionStatusBar';
 import TimelineChart from './TimelineChart';
 import VideoPreview from './VideoPreview';
+import AmbientBar from '../coaching/AmbientBar';
 import { FileInputAdapter } from '../inputs/FileInputAdapter';
 import { LiveInputAdapter } from '../inputs/LiveInputAdapter';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
 import type { InputAdapter } from '../inputs/InputAdapter';
 
 export default function Dashboard() {
-  const { snapshot, history, isRunning, start, stop, streamManager } = useMetricsEngine();
+  const { snapshot, history, isRunning, start, stop, eventBus, streamManager } = useMetricsEngine();
   const [status, setStatus] = useState('Ready');
   const [error, setError] = useState<string | null>(null);
   const [tutorStream, setTutorStream] = useState<MediaStream | null>(null);
@@ -116,6 +117,7 @@ export default function Dashboard() {
 
       {isRunning && (
         <>
+          <AmbientBar bus={eventBus} />
           <SessionStatusBar session={snapshot?.session ?? null} />
 
           <div style={styles.participantRow}>

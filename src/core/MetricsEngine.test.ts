@@ -15,6 +15,7 @@ function makeAccumulator(
       ? { source: 'audio' as const, participant: 'tutor' as const, timestamp: 1000, ...audio }
       : null,
     speakingMs,
+    lastAudioTimestamp: audio ? 1000 : null,
   };
 }
 

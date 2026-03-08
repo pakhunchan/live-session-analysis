@@ -29,7 +29,7 @@ describe('classifyEyeContact', () => {
     const gaze: GazeEstimate = {
       horizontalRatio: 0.5,
       verticalRatio: 0.5,
-      headYawDeg: 35,  // beyond 30 default threshold
+      headYawDeg: 50,  // beyond 45 default threshold
       headPitchDeg: 0,
     };
     expect(classifyEyeContact(gaze)).toBe(0);

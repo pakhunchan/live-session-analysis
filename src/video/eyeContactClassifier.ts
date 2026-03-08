@@ -10,14 +10,18 @@ export interface EyeContactConfig {
 const DEFAULT_CONFIG: EyeContactConfig = {
   horizontalThreshold: 0.35,
   verticalThreshold: 0.4,
-  maxHeadYawDeg: 30,
-  maxHeadPitchDeg: 25,
+  maxHeadYawDeg: 45,
+  maxHeadPitchDeg: 35,
 };
 
 /**
  * Pure function: GazeEstimate → smooth 0-1 eye contact score.
  * Returns 1.0 when looking straight at camera, 0.0 when looking away.
  * Smooth gradient based on distance from center — not a binary threshold.
+ *
+ * Uses weighted average of gaze and head-pose factors to avoid the
+ * "multiplication penalty" where four individually-reasonable factors
+ * compound into an unreasonably low score.
  */
 export function classifyEyeContact(
   gaze: GazeEstimate,
@@ -39,6 +43,11 @@ export function classifyEyeContact(
   const yawAtten = 1 - Math.abs(gaze.headYawDeg) / config.maxHeadYawDeg;
   const pitchAtten = 1 - Math.abs(gaze.headPitchDeg) / config.maxHeadPitchDeg;
 
-  // Combined: geometric mean for balanced weighting
-  return hScore * vScore * yawAtten * pitchAtten;
+  // Gaze stays multiplicative: must be on-target in BOTH dimensions.
+  // Head pose uses average instead of product, so small yaw + small pitch
+  // don't compound harshly (old: 0.67 × 0.60 = 0.40, new: avg = 0.64).
+  const gazeScore = hScore * vScore;
+  const poseMultiplier = (yawAtten + pitchAtten) / 2;
+
+  return gazeScore * poseMultiplier;
 }

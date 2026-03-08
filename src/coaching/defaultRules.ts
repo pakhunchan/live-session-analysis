@@ -1,0 +1,52 @@
+import type { NudgeRule } from '../types';
+
+/**
+ * Five default coaching rules from the PRD:
+ * 1. Student silent > 3 minutes
+ * 2. Low eye contact sustained
+ * 3. Tutor talk-time dominant (> 80%)
+ * 4. Energy drop (declining trend + low scores)
+ * 5. Interruption spike (≥ 3 interruptions)
+ */
+export const defaultRules: NudgeRule[] = [
+  {
+    type: 'student_silent',
+    message: 'The student has been quiet for a while — try asking an open-ended question.',
+    priority: 'high',
+    cooldownMs: 120_000, // 2 min between re-fires
+    condition: (snap) => snap.session.currentSilenceDurationMs > 180_000,
+  },
+  {
+    type: 'low_eye_contact',
+    message: 'Eye contact is low — the student may be distracted or disengaged.',
+    priority: 'medium',
+    cooldownMs: 90_000,
+    condition: (snap) =>
+      snap.student.faceDetected && snap.student.eyeContactScore < 0.3,
+  },
+  {
+    type: 'tutor_talk_dominant',
+    message: 'You\'ve been talking most of the time — consider pausing to let the student respond.',
+    priority: 'medium',
+    cooldownMs: 120_000,
+    condition: (snap) =>
+      snap.tutor.talkTimePercent > 0.8 && snap.session.sessionElapsedMs > 60_000,
+  },
+  {
+    type: 'energy_drop',
+    message: 'Energy levels are dropping — try changing the activity or asking a question.',
+    priority: 'low',
+    cooldownMs: 180_000,
+    condition: (snap) =>
+      snap.session.engagementTrend === 'declining' &&
+      snap.student.energyScore < 0.3 &&
+      snap.tutor.energyScore < 0.4,
+  },
+  {
+    type: 'interruption_spike',
+    message: 'Several interruptions detected — consider establishing turn-taking norms.',
+    priority: 'high',
+    cooldownMs: 180_000,
+    condition: (snap) => snap.session.interruptionCount >= 3,
+  },
+];

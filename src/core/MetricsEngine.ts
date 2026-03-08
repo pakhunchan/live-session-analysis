@@ -24,6 +24,7 @@ interface ParticipantAccumulator {
   latestVideo: MetricDataPoint | null;
   latestAudio: MetricDataPoint | null;
   speakingMs: number;
+  lastAudioTimestamp: number | null;
 }
 
 function defaultParticipantMetrics(): ParticipantMetrics {
@@ -146,8 +147,8 @@ export class MetricsEngine {
   private currentSilenceDurationMs = 0;
   private lastSilenceCheckTime = 0;
 
-  private tutorAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0 };
-  private studentAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0 };
+  private tutorAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0, lastAudioTimestamp: null };
+  private studentAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0, lastAudioTimestamp: null };
 
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private onSnapshot: ((snapshot: MetricSnapshot) => void) | null = null;
@@ -184,10 +185,13 @@ export class MetricsEngine {
     if (dp.source === 'video') {
       acc.latestVideo = dp;
     } else {
-      // Update speaking accumulator
-      if (dp.isSpeaking) {
-        acc.speakingMs += this.config.snapshotIntervalMs / 2; // approximate
+      // Update speaking accumulator using actual time delta between audio samples
+      if (dp.isSpeaking && acc.lastAudioTimestamp !== null) {
+        const deltaMs = dp.timestamp - acc.lastAudioTimestamp;
+        // Clamp to prevent huge jumps from stale timestamps
+        acc.speakingMs += Math.min(deltaMs, 1000);
       }
+      acc.lastAudioTimestamp = dp.timestamp;
       acc.latestAudio = dp;
     }
 

@@ -4,6 +4,7 @@ import { MetricsEngine } from '../../core/MetricsEngine';
 import { VideoPipeline } from '../../video/VideoPipeline';
 import { AudioPipeline } from '../../audio/AudioPipeline';
 import { StreamManager } from '../../core/StreamManager';
+import { NudgeEngine } from '../../coaching/NudgeEngine';
 import type { IFaceDetector } from '../../video/FaceDetector';
 import type { MetricSnapshot, MetricDataPoint } from '../../types';
 import { EventType } from '../../types';
@@ -28,6 +29,7 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   const videoPipelineRef = useRef<VideoPipeline | null>(null);
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
   const streamManagerRef = useRef(new StreamManager({ videoFps: 2, audioSampleHz: 20 }));
+  const nudgeEngineRef = useRef<NudgeEngine | null>(null);
 
   // Subscribe to snapshots
   useEffect(() => {
@@ -87,6 +89,11 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
       ap.processChunk(chunk);
     });
 
+    // Start coaching engine
+    const ne = new NudgeEngine(bus);
+    nudgeEngineRef.current = ne;
+    ne.start();
+
     // Start everything
     me.start((snap) => {
       bus.emit(EventType.METRIC_SNAPSHOT, snap);
@@ -96,6 +103,7 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   }, [sessionId]);
 
   const stop = useCallback(() => {
+    nudgeEngineRef.current?.stop();
     metricsEngineRef.current?.stop();
     streamManagerRef.current.stop();
     setIsRunning(false);
