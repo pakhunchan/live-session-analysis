@@ -1,0 +1,235 @@
+import type {
+  MetricDataPoint,
+  MetricSnapshot,
+  ParticipantMetrics,
+  SessionMetrics,
+  EngagementTrend,
+} from '../types';
+
+export interface MetricsEngineConfig {
+  sessionId: string;
+  snapshotIntervalMs: number;  // default 500 (2 Hz)
+  trendWindowSize: number;     // number of snapshots for trend calc
+  historyMaxLength: number;    // max snapshots to keep in memory
+}
+
+const DEFAULT_CONFIG: MetricsEngineConfig = {
+  sessionId: '',
+  snapshotIntervalMs: 500,
+  trendWindowSize: 10,
+  historyMaxLength: 3600,  // ~30 min at 2 Hz
+};
+
+interface ParticipantAccumulator {
+  latestVideo: MetricDataPoint | null;
+  latestAudio: MetricDataPoint | null;
+  speakingMs: number;
+}
+
+function defaultParticipantMetrics(): ParticipantMetrics {
+  return {
+    eyeContactScore: 0,
+    talkTimePercent: 0,
+    energyScore: 0,
+    isSpeaking: false,
+    faceDetected: false,
+    faceConfidence: 0,
+  };
+}
+
+/**
+ * Pure function: fuse latest data points into a MetricSnapshot.
+ */
+export function computeSnapshot(
+  sessionId: string,
+  timestamp: number,
+  tutorAcc: ParticipantAccumulator,
+  studentAcc: ParticipantAccumulator,
+  interruptionCount: number,
+  currentSilenceDurationMs: number,
+  sessionElapsedMs: number,
+  recentSnapshots: MetricSnapshot[],
+  trendWindowSize: number,
+): MetricSnapshot {
+  const tutor = buildParticipantMetrics(tutorAcc, sessionElapsedMs);
+  const student = buildParticipantMetrics(studentAcc, sessionElapsedMs);
+
+  const session: SessionMetrics = {
+    interruptionCount,
+    currentSilenceDurationMs,
+    engagementTrend: computeTrend(recentSnapshots, trendWindowSize),
+    sessionElapsedMs,
+  };
+
+  return { timestamp, sessionId, tutor, student, session };
+}
+
+function buildParticipantMetrics(
+  acc: ParticipantAccumulator,
+  sessionElapsedMs: number,
+): ParticipantMetrics {
+  const video = acc.latestVideo;
+  const audio = acc.latestAudio;
+
+  const faceDetected = video?.faceDetected ?? false;
+  const faceConfidence = video?.faceConfidence ?? 0;
+
+  return {
+    eyeContactScore: faceDetected ? (video?.eyeContact ?? 0) : 0,
+    talkTimePercent: sessionElapsedMs > 0 ? acc.speakingMs / sessionElapsedMs : 0,
+    energyScore: computeEnergy(video, audio),
+    isSpeaking: audio?.isSpeaking ?? false,
+    faceDetected,
+    faceConfidence,
+  };
+}
+
+function computeEnergy(
+  video: MetricDataPoint | null,
+  audio: MetricDataPoint | null,
+): number {
+  const expressionEnergy = video?.expressionEnergy ?? 0;
+  const voiceEnergy = audio?.voiceEnergy ?? 0;
+  // Weighted: 40% expression, 60% voice when both present
+  if (video?.faceDetected && audio) {
+    return expressionEnergy * 0.4 + voiceEnergy * 0.6;
+  }
+  if (video?.faceDetected) return expressionEnergy;
+  if (audio) return voiceEnergy;
+  return 0;
+}
+
+/**
+ * Pure function: compute engagement trend from recent snapshots.
+ */
+export function computeTrend(
+  recentSnapshots: MetricSnapshot[],
+  windowSize: number,
+): EngagementTrend {
+  if (recentSnapshots.length < 2) return 'stable';
+
+  const window = recentSnapshots.slice(-windowSize);
+  if (window.length < 2) return 'stable';
+
+  // Average engagement = mean of both participants' energy + eye contact
+  const scores = window.map((s) => {
+    const tutorEng = (s.tutor.eyeContactScore + s.tutor.energyScore) / 2;
+    const studentEng = (s.student.eyeContactScore + s.student.energyScore) / 2;
+    return (tutorEng + studentEng) / 2;
+  });
+
+  // Simple linear regression slope
+  const n = scores.length;
+  const xMean = (n - 1) / 2;
+  const yMean = scores.reduce((a, b) => a + b, 0) / n;
+
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < n; i++) {
+    num += (i - xMean) * (scores[i] - yMean);
+    den += (i - xMean) ** 2;
+  }
+
+  const slope = den === 0 ? 0 : num / den;
+  const threshold = 0.02;  // minimum slope to count as trending
+
+  if (slope > threshold) return 'rising';
+  if (slope < -threshold) return 'declining';
+  return 'stable';
+}
+
+export class MetricsEngine {
+  private config: MetricsEngineConfig;
+  private startTime: number = 0;
+  private history: MetricSnapshot[] = [];
+  private interruptionCount = 0;
+  private currentSilenceDurationMs = 0;
+  private lastSilenceCheckTime = 0;
+
+  private tutorAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0 };
+  private studentAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0 };
+
+  private snapshotTimer: ReturnType<typeof setInterval> | null = null;
+  private onSnapshot: ((snapshot: MetricSnapshot) => void) | null = null;
+
+  constructor(config: Partial<MetricsEngineConfig> = {}) {
+    this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  start(onSnapshot?: (snapshot: MetricSnapshot) => void): void {
+    this.startTime = Date.now();
+    this.lastSilenceCheckTime = this.startTime;
+    this.onSnapshot = onSnapshot ?? null;
+
+    this.snapshotTimer = setInterval(() => {
+      const snapshot = this.produceSnapshot();
+      this.history.push(snapshot);
+      if (this.history.length > this.config.historyMaxLength) {
+        this.history.shift();
+      }
+      this.onSnapshot?.(snapshot);
+    }, this.config.snapshotIntervalMs);
+  }
+
+  stop(): void {
+    if (this.snapshotTimer) {
+      clearInterval(this.snapshotTimer);
+      this.snapshotTimer = null;
+    }
+  }
+
+  ingestDataPoint(dp: MetricDataPoint): void {
+    const acc = dp.participant === 'tutor' ? this.tutorAcc : this.studentAcc;
+
+    if (dp.source === 'video') {
+      acc.latestVideo = dp;
+    } else {
+      // Update speaking accumulator
+      if (dp.isSpeaking) {
+        acc.speakingMs += this.config.snapshotIntervalMs / 2; // approximate
+      }
+      acc.latestAudio = dp;
+    }
+
+    // Silence tracking
+    const now = dp.timestamp;
+    const tutorSpeaking = this.tutorAcc.latestAudio?.isSpeaking ?? false;
+    const studentSpeaking = this.studentAcc.latestAudio?.isSpeaking ?? false;
+
+    if (!tutorSpeaking && !studentSpeaking) {
+      this.currentSilenceDurationMs += now - this.lastSilenceCheckTime;
+    } else {
+      this.currentSilenceDurationMs = 0;
+    }
+    this.lastSilenceCheckTime = now;
+  }
+
+  setInterruptionCount(count: number): void {
+    this.interruptionCount = count;
+  }
+
+  getHistory(): MetricSnapshot[] {
+    return [...this.history];
+  }
+
+  getLatestSnapshot(): MetricSnapshot | null {
+    return this.history.length > 0 ? this.history[this.history.length - 1] : null;
+  }
+
+  private produceSnapshot(): MetricSnapshot {
+    const now = Date.now();
+    const sessionElapsedMs = now - this.startTime;
+
+    return computeSnapshot(
+      this.config.sessionId,
+      now,
+      this.tutorAcc,
+      this.studentAcc,
+      this.interruptionCount,
+      this.currentSilenceDurationMs,
+      sessionElapsedMs,
+      this.history,
+      this.config.trendWindowSize,
+    );
+  }
+}
