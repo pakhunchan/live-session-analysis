@@ -118,12 +118,20 @@ export class VideoPipeline {
       gazeHist.shift();
     }
 
-    // Compute gaze variation (std dev scaled to 0-1)
+    // Gaze variation: EMA of frame-to-frame gaze deltas.
+    // Responds instantly when eyes start moving, decays within ~1s when steady.
     let gazeVariationX = 0;
     let gazeVariationY = 0;
     if (gazeHist.length >= 2) {
-      gazeVariationX = Math.min(1, stdDev(gazeHist.map((g) => g.x)) * 5);
-      gazeVariationY = Math.min(1, stdDev(gazeHist.map((g) => g.y)) * 5);
+      const decay = 0.2;
+      let emaX = 0;
+      let emaY = 0;
+      for (let i = 1; i < gazeHist.length; i++) {
+        emaX = decay * emaX + (1 - decay) * Math.abs(gazeHist[i].x - gazeHist[i - 1].x);
+        emaY = decay * emaY + (1 - decay) * Math.abs(gazeHist[i].y - gazeHist[i - 1].y);
+      }
+      gazeVariationX = Math.min(1, emaX * 20);
+      gazeVariationY = Math.min(1, emaY * 20);
     }
 
     const exprResult = computeExpressionEnergy(features, history, undefined, pitchHist);

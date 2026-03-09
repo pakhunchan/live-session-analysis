@@ -1,15 +1,16 @@
 import React, { useRef, useEffect } from 'react';
 
-// === Every landmark our metrics pipeline actually reads ===
+// === Landmarks used by the metrics pipeline ===
 //
-// Gaze estimation (gazeEstimation.ts):
-//   468 left iris center, 473 right iris center
-//   33/133 left eye outer/inner, 362/263 right eye outer/inner
-//   159/145 left eye top/bottom, 386/374 right eye top/bottom
+// Gaze (gazeEstimation.ts):
+//   468/473 iris centers, 33/133/159/145 left eye, 362/263/386/374 right eye
 //   1 nose tip, 152 chin, 234 left ear, 454 right ear
 //
-// Expression fallback (expressionAnalysis.ts):
-//   105 brow, 13/14 upper/lower lip, 61/291 mouth corners
+// Expression (expressionAnalysis.ts):
+//   105/334 brows, 13/14 inner lips, 0/17 outer lips, 61/291 mouth corners
+//   50/280 cheeks (Duchenne smile), 386/374 right eye (bilateral)
+//
+// Visualization: full contours from FACEMESH_NOSE, FACEMESH_LIPS, FACEMESH_FACE_OVAL
 
 // Iris rings (468-472 left, 473-477 right)
 const IRIS_CONNECTIONS: [number, number][] = [
@@ -19,36 +20,75 @@ const IRIS_CONNECTIONS: [number, number][] = [
 
 // Eye boxes — the bounding region used for gaze ratio computation
 const EYE_CONNECTIONS: [number, number][] = [
-  // Left eye box: outer → top → inner → bottom → outer
   [33, 159], [159, 133], [133, 145], [145, 33],
-  // Right eye box: outer → top → inner → bottom → outer
   [362, 386], [386, 263], [263, 374], [374, 362],
 ];
 
-// Mouth outline — lip openness + smile width
-const MOUTH_CONNECTIONS: [number, number][] = [
-  [61, 13], [13, 291], [291, 14], [14, 61],
+// Full lip contour (from FACEMESH_LIPS) — lip openness + smile width
+const LIP_CONNECTIONS: [number, number][] = [
+  // Outer upper lip: left corner → cupid's bow (0) → right corner
+  [61, 185], [185, 40], [40, 39], [39, 37], [37, 0],
+  [0, 267], [267, 269], [269, 270], [270, 409], [409, 291],
+  // Outer lower lip: left corner → bottom center (17) → right corner
+  [61, 146], [146, 91], [91, 181], [181, 84], [84, 17],
+  [17, 314], [314, 405], [405, 321], [321, 375], [375, 291],
+  // Inner upper lip
+  [78, 191], [191, 80], [80, 81], [81, 82], [82, 13],
+  [13, 312], [312, 311], [311, 310], [310, 415], [415, 308],
+  // Inner lower lip
+  [78, 95], [95, 88], [88, 178], [178, 87], [87, 14],
+  [14, 317], [317, 402], [402, 318], [318, 324], [324, 308],
+];
+
+// Eyebrow outlines (from FACEMESH_LEFT/RIGHT_EYEBROW)
+const BROW_CONNECTIONS: [number, number][] = [
+  // Right eyebrow
+  [46, 53], [53, 52], [52, 65], [65, 55],
+  [70, 63], [63, 105], [105, 66], [66, 107],
+  // Left eyebrow
+  [276, 283], [283, 282], [282, 295], [295, 285],
+  [300, 293], [293, 334], [334, 296], [296, 336],
+];
+
+// Nose structure (from FACEMESH_NOSE) — bridge, tip, nostrils
+const NOSE_CONNECTIONS: [number, number][] = [
+  // Bridge: nasion (between brows) → nose tip
+  [168, 6], [6, 197], [197, 195], [195, 5], [5, 4], [4, 1],
+  // Subnasal area
+  [1, 19], [19, 94], [94, 2], [2, 97], [97, 98],
+  [2, 326], [326, 327], [327, 294],
+  // Right nostril wing
+  [294, 278], [278, 344], [344, 440], [440, 275], [275, 4],
+  // Left nostril wing
+  [4, 45], [45, 220], [220, 115], [115, 48], [48, 64], [64, 98],
+];
+
+// Jawline — lower arc of FACEMESH_FACE_OVAL (ear to ear via chin)
+const JAWLINE_CONNECTIONS: [number, number][] = [
+  // Right jaw: ear → chin
+  [454, 323], [323, 361], [361, 288], [288, 397], [397, 365],
+  [365, 379], [379, 378], [378, 400], [400, 377], [377, 152],
+  // Left jaw: chin → ear
+  [152, 148], [148, 176], [176, 149], [149, 150], [150, 136],
+  [136, 172], [172, 58], [58, 132], [132, 93], [93, 234],
 ];
 
 // Head pose reference — nose/chin (pitch) + ears (yaw)
 const HEAD_POSE_CONNECTIONS: [number, number][] = [
-  [1, 152],        // nose → chin (pitch axis)
-  [234, 1], [1, 454],  // left ear → nose → right ear (yaw axis)
+  [1, 152],              // nose → chin (pitch axis)
+  [234, 1], [1, 454],   // left ear → nose → right ear (yaw axis)
 ];
 
-// Brow → eye top (brow position measurement)
-const BROW_CONNECTIONS: [number, number][] = [
-  [105, 159],  // brow landmark → left eye top
-];
-
-// All landmark indices used by the pipeline (for orange dots)
-const ALL_LANDMARKS = [
-  468, 473,               // iris centers
-  33, 133, 159, 145,      // left eye corners
-  362, 263, 386, 374,     // right eye corners
-  1, 152, 234, 454,       // head pose
-  105,                     // brow
-  13, 14, 61, 291,        // mouth
+// Only landmarks that feed into pipeline computation get yellow dots.
+// Connection lines (lips, nose, jawline, brows) still draw for anatomical context.
+const PIPELINE_LANDMARKS = [
+  468, 473,                 // iris centers (gaze)
+  33, 133, 159, 145,        // left eye (gaze + expression)
+  362, 263, 386, 374,       // right eye (gaze + expression)
+  105, 334,                 // brows L/R (expression)
+  0, 13, 14, 17, 61, 291,  // lips inner/outer/corners (expression)
+  50, 280,                  // cheeks (Duchenne smile)
+  1, 152, 234, 454,         // nose tip, chin, ears (head pose)
 ];
 
 interface FaceMeshCanvasProps {
@@ -149,11 +189,17 @@ export default function FaceMeshCanvas({ videoRef }: FaceMeshCanvasProps) {
           // Eye boxes (blue) — gaze ratio bounding regions
           draw(EYE_CONNECTIONS, 'rgba(66, 133, 244, 0.7)', 1.5);
 
-          // Mouth (blue) — lip openness + smile width
-          draw(MOUTH_CONNECTIONS, 'rgba(66, 133, 244, 0.7)', 1.5);
+          // Lip contour (blue) — inner + outer lip shape
+          draw(LIP_CONNECTIONS, 'rgba(66, 133, 244, 0.7)', 1.5);
 
           // Brow (blue) — brow-eye distance
           draw(BROW_CONNECTIONS, 'rgba(66, 133, 244, 0.5)', 1);
+
+          // Nose (blue) — bridge + nostrils
+          draw(NOSE_CONNECTIONS, 'rgba(66, 133, 244, 0.5)', 1);
+
+          // Jawline (faint red) — chin/jaw contour
+          draw(JAWLINE_CONNECTIONS, 'rgba(220, 53, 69, 0.3)', 1);
 
           // Head pose axes (red/orange) — yaw + pitch reference
           draw(HEAD_POSE_CONNECTIONS, 'rgba(220, 53, 69, 0.6)', 1.5);
@@ -161,9 +207,9 @@ export default function FaceMeshCanvas({ videoRef }: FaceMeshCanvasProps) {
           // Iris rings (green)
           draw(IRIS_CONNECTIONS, 'rgba(52, 168, 83, 0.9)', 1.5);
 
-          // All used landmarks (orange dots)
+          // Pipeline landmarks (yellow dots) — only points that feed into metrics
           ctx.fillStyle = 'rgba(251, 188, 4, 0.9)';
-          for (const idx of ALL_LANDMARKS) {
+          for (const idx of PIPELINE_LANDMARKS) {
             if (idx < lm.length) {
               ctx.beginPath();
               ctx.arc(lm[idx].x * w, lm[idx].y * h, 3, 0, Math.PI * 2);

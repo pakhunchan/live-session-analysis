@@ -56,7 +56,7 @@ function EnergyDebug({ breakdown: b }: { breakdown: EnergyBreakdown }) {
           <div style={styles.debugColTitle}>Video (20%)</div>
           <DebugRow label="Blink" value={b.blinkActivity} />
           <DebugRow label="Brows" value={b.browActivity} />
-          <DebugRow label="Lips" value={b.lipActivity} />
+          <DebugRow label="MouthOpen" value={b.lipActivity} />
           <DebugRow label="Smile" value={b.genuineSmile} />
           <div style={styles.debugSubtotal}>Expr: {pct(b.expressionEnergy)}</div>
           <div style={styles.debugSectionDivider} />
