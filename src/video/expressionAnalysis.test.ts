@@ -110,7 +110,7 @@ describe('extractBlendshapeFeatures', () => {
       bs('cheekSquintLeft', 0.0),
       bs('cheekSquintRight', 0.0),
     ]);
-    expect(posed.genuineSmile).toBeCloseTo(0.8, 1);
+    expect(posed.genuineSmile).toBeCloseTo(0.89, 1); // sqrt(0.8) ≈ 0.894
 
     // With cheekSquint — scores slightly higher (bonus)
     const genuine = extractBlendshapeFeatures([

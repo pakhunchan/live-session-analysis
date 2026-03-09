@@ -82,8 +82,11 @@ export function extractBlendshapeFeatures(blendshapes: BlendshapeEntry[]): Expre
   const cheekR = findBlendshape(blendshapes, 'cheekSquintRight');
   const mouthSmile = (smileL + smileR) / 2;
   const cheekSquint = (cheekL + cheekR) / 2;
-  // Base score from mouth corners; cheekSquint adds up to 20% bonus
-  const genuineSmile = Math.min(1, mouthSmile + cheekSquint * 0.2);
+  // Base score from mouth corners; cheekSquint adds up to 20% bonus.
+  // sqrt curve: for engagement, a subtle smile matters almost as much as a
+  // big grin. sqrt(0.25)=0.50, sqrt(0.50)=0.71 — boosts low values.
+  const rawSmile = Math.min(1, mouthSmile + cheekSquint * 0.2);
+  const genuineSmile = Math.sqrt(rawSmile);
 
   // Eye widening (AU5) — surprise / "aha" moments
   // MediaPipe eyeWide has low dynamic range on webcams (typically 0-0.08).
