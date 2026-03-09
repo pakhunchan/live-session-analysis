@@ -1,8 +1,9 @@
 import type { GazeEstimate } from './gazeEstimation';
 
 export interface EyeContactConfig {
-  horizontalThreshold: number;  // max deviation from 0.5 center
+  horizontalThreshold: number;  // max deviation from center
   verticalThreshold: number;
+  verticalCenter: number;       // vertical "looking at screen" sweet spot (default 0.45 to compensate for top-mounted webcam)
   maxHeadYawDeg: number;
   maxHeadPitchDeg: number;
 }
@@ -10,6 +11,7 @@ export interface EyeContactConfig {
 const DEFAULT_CONFIG: EyeContactConfig = {
   horizontalThreshold: 0.35,
   verticalThreshold: 0.4,
+  verticalCenter: 0.45,  // shifted down from 0.5 — webcam sits above screen
   maxHeadYawDeg: 45,
   maxHeadPitchDeg: 35,
 };
@@ -31,9 +33,9 @@ export function classifyEyeContact(
   if (Math.abs(gaze.headYawDeg) > config.maxHeadYawDeg) return 0;
   if (Math.abs(gaze.headPitchDeg) > config.maxHeadPitchDeg) return 0;
 
-  // Gaze deviation from center (0.5)
+  // Gaze deviation from center (horizontal: 0.5, vertical: configurable for webcam bias)
   const hDev = Math.abs(gaze.horizontalRatio - 0.5);
-  const vDev = Math.abs(gaze.verticalRatio - 0.5);
+  const vDev = Math.abs(gaze.verticalRatio - config.verticalCenter);
 
   // Normalize to 0-1 where 0 = at threshold, 1 = at center
   const hScore = Math.max(0, 1 - hDev / config.horizontalThreshold);

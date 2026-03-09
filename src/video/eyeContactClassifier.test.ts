@@ -6,7 +6,7 @@ describe('classifyEyeContact', () => {
   it('centered gaze returns score near 1.0', () => {
     const gaze: GazeEstimate = {
       horizontalRatio: 0.5,
-      verticalRatio: 0.5,
+      verticalRatio: 0.45,  // matches verticalCenter default (webcam bias corrected)
       headYawDeg: 0,
       headPitchDeg: 0,
     };
@@ -58,6 +58,7 @@ describe('classifyEyeContact', () => {
     const tight = classifyEyeContact(gaze, {
       horizontalThreshold: 0.15,
       verticalThreshold: 0.15,
+      verticalCenter: 0.5,
       maxHeadYawDeg: 30,
       maxHeadPitchDeg: 25,
     });
@@ -65,6 +66,7 @@ describe('classifyEyeContact', () => {
     const loose = classifyEyeContact(gaze, {
       horizontalThreshold: 0.5,
       verticalThreshold: 0.5,
+      verticalCenter: 0.5,
       maxHeadYawDeg: 30,
       maxHeadPitchDeg: 25,
     });
