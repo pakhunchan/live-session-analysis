@@ -1,11 +1,13 @@
 import React, { useRef, useEffect } from 'react';
+import FaceMeshCanvas from './FaceMeshCanvas';
 
 interface VideoPreviewProps {
   stream: MediaStream | null;
   label: string;
+  showMesh?: boolean;
 }
 
-export default function VideoPreview({ stream, label }: VideoPreviewProps) {
+export default function VideoPreview({ stream, label, showMesh }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -24,6 +26,7 @@ export default function VideoPreview({ stream, label }: VideoPreviewProps) {
         playsInline
         style={styles.video}
       />
+      {showMesh && <FaceMeshCanvas videoRef={videoRef} />}
       <div style={styles.label}>{label}</div>
     </div>
   );

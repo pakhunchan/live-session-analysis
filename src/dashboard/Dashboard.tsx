@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [tutorStream, setTutorStream] = useState<MediaStream | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [showMesh, setShowMesh] = useState(false);
   const adapterRef = useRef<InputAdapter | null>(null);
 
   const initAndStart = useCallback(async (adapter: InputAdapter) => {
@@ -139,8 +140,20 @@ export default function Dashboard() {
           </div>
 
           <div style={styles.videoRow}>
-            <VideoPreview stream={tutorStream} label="Tutor" />
+            <VideoPreview
+              stream={tutorStream}
+              label="Tutor"
+              showMesh={showMesh}
+            />
           </div>
+          <label style={styles.meshToggle}>
+            <input
+              type="checkbox"
+              checked={showMesh}
+              onChange={(e) => setShowMesh(e.target.checked)}
+            />
+            {' '}Show Mesh
+          </label>
 
           <button onClick={handleStop} style={styles.stopBtn}>
             Stop Session
@@ -250,6 +263,13 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: '1rem',
     marginTop: '1.25rem',
+  },
+  meshToggle: {
+    display: 'block',
+    marginTop: '0.5rem',
+    fontSize: '0.8rem',
+    color: '#495057',
+    cursor: 'pointer',
   },
   stopBtn: {
     display: 'block',
