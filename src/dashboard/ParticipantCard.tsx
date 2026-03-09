@@ -1,6 +1,6 @@
 import React from 'react';
 import MetricGauge from './MetricGauge';
-import type { ParticipantMetrics } from '../types';
+import type { ParticipantMetrics, EnergyBreakdown } from '../types';
 
 interface ParticipantCardProps {
   role: 'Tutor' | 'Student';
@@ -36,6 +36,58 @@ export default function ParticipantCard({ role, metrics, color }: ParticipantCar
       <div style={styles.details}>
         <span>Face Confidence: {Math.round(m.faceConfidence * 100)}%</span>
       </div>
+
+      {m.energyBreakdown && <EnergyDebug breakdown={m.energyBreakdown} />}
+    </div>
+  );
+}
+
+function pct(v: number): string {
+  return `${Math.round(v * 100)}%`;
+}
+
+function EnergyDebug({ breakdown: b }: { breakdown: EnergyBreakdown }) {
+  return (
+    <div style={styles.debugPanel}>
+      <div style={styles.debugTitle}>Energy Breakdown</div>
+      <div style={styles.debugColumns}>
+        <div style={styles.debugCol}>
+          <div style={styles.debugColTitle}>Video (40%)</div>
+          <DebugRow label="Blink" value={b.blinkActivity} />
+          <DebugRow label="Brows" value={b.browActivity} />
+          <DebugRow label="Lips" value={b.lipActivity} />
+          <DebugRow label="Smile" value={b.genuineSmile} />
+          <div style={styles.debugSubtotal}>Expr: {pct(b.expressionEnergy)}</div>
+          <div style={styles.debugSectionDivider} />
+          <div style={styles.debugColTitle}>New Signals</div>
+          <DebugRow label="Nod" value={b.headNodActivity} />
+          <DebugRow label="Confuse" value={b.confusionIndex} />
+          <DebugRow label="EyeWide" value={b.eyeWideness} />
+          <DebugRow label="LipTens" value={b.lipTension} />
+          <DebugRow label="Frustr" value={b.frustration} />
+        </div>
+        <div style={styles.debugCol}>
+          <div style={styles.debugColTitle}>Audio (60%)</div>
+          <DebugRow label="Volume" value={b.volume} />
+          <DebugRow label="Variance" value={b.volumeVariance} />
+          <DebugRow label="Bright" value={b.spectralBrightness} />
+          <DebugRow label="Rate" value={b.speechRate} />
+          <div style={styles.debugSubtotal}>Voice: {pct(b.voiceEnergy)}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DebugRow({ label, value }: { label: string; value: number }) {
+  const barWidth = Math.round(value * 100);
+  return (
+    <div style={styles.debugRow}>
+      <span style={styles.debugLabel}>{label}</span>
+      <div style={styles.debugBarBg}>
+        <div style={{ ...styles.debugBarFill, width: `${barWidth}%` }} />
+      </div>
+      <span style={styles.debugValue}>{pct(value)}</span>
     </div>
   );
 }
@@ -88,5 +140,77 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.75rem',
     color: '#6c757d',
     textAlign: 'center',
+  },
+  debugPanel: {
+    marginTop: '0.5rem',
+    padding: '0.5rem',
+    background: '#f8f9fa',
+    borderRadius: '6px',
+    border: '1px solid #e9ecef',
+  },
+  debugTitle: {
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    color: '#495057',
+    marginBottom: '0.35rem',
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.5px',
+  },
+  debugColumns: {
+    display: 'flex',
+    gap: '0.75rem',
+  },
+  debugCol: {
+    flex: 1,
+  },
+  debugColTitle: {
+    fontSize: '0.65rem',
+    fontWeight: 600,
+    color: '#6c757d',
+    marginBottom: '0.25rem',
+  },
+  debugRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.25rem',
+    marginBottom: '2px',
+  },
+  debugLabel: {
+    fontSize: '0.6rem',
+    color: '#495057',
+    width: '52px',
+    flexShrink: 0,
+  },
+  debugSectionDivider: {
+    height: 1,
+    background: '#dee2e6',
+    margin: '4px 0',
+  },
+  debugBarBg: {
+    flex: 1,
+    height: 6,
+    background: '#dee2e6',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  debugBarFill: {
+    height: '100%',
+    background: '#0d6efd',
+    borderRadius: 3,
+    transition: 'width 0.3s',
+  },
+  debugValue: {
+    fontSize: '0.6rem',
+    color: '#495057',
+    width: '28px',
+    textAlign: 'right' as const,
+    flexShrink: 0,
+  },
+  debugSubtotal: {
+    fontSize: '0.6rem',
+    fontWeight: 600,
+    color: '#495057',
+    marginTop: '2px',
+    textAlign: 'right' as const,
   },
 };

@@ -42,6 +42,7 @@ function makeGoodResult(): FaceDetectionResult {
       { categoryName: 'mouthSmileRight', score: 0.5 },
     ],
     confidence: 0.95,
+    headPose: { pitch: 0.05, yaw: 0.0, roll: 0.0 },
   };
 }
 
@@ -93,6 +94,35 @@ describe('VideoPipeline', () => {
 
     expect(events[0].faceDetected).toBe(true);
     expect(events[0].faceConfidence).toBe(0.95);
+  });
+
+  it('emits new engagement metric fields', async () => {
+    const result = makeGoodResult();
+    result.blendshapes = [
+      ...(result.blendshapes ?? []),
+      { categoryName: 'eyeWideLeft', score: 0.6 },
+      { categoryName: 'eyeWideRight', score: 0.6 },
+      { categoryName: 'browDownLeft', score: 0.5 },
+      { categoryName: 'browDownRight', score: 0.5 },
+      { categoryName: 'eyeSquintLeft', score: 0.4 },
+      { categoryName: 'eyeSquintRight', score: 0.4 },
+    ];
+    const detector = new MockFaceDetector(result);
+    const bus = new EventBus();
+    const pipeline = new VideoPipeline(detector, bus);
+
+    const events: MetricDataPoint[] = [];
+    bus.on<MetricDataPoint>(EventType.VIDEO_METRICS, (e) => events.push(e.payload));
+
+    await pipeline.processFrame(makeFrame());
+
+    expect(events[0].eyeWideness).toBeDefined();
+    expect(events[0].eyeWideness).toBeGreaterThan(0);
+    expect(events[0].confusionIndex).toBeDefined();
+    expect(events[0].confusionIndex).toBeGreaterThan(0);
+    expect(events[0].headNodActivity).toBeDefined();
+    expect(events[0].lipTension).toBeDefined();
+    expect(events[0].frustration).toBeDefined();
   });
 
   it('tracks degradation rate correctly', async () => {

@@ -1,13 +1,12 @@
 import type { EventBus } from '../core/EventBus';
 import type { FrameData, MetricDataPoint, ParticipantRole } from '../types';
 import { EventType } from '../types';
-import type { IFaceDetector, FaceLandmark } from './FaceDetector';
+import type { IFaceDetector } from './FaceDetector';
 import { estimateGaze } from './gazeEstimation';
 import { classifyEyeContact } from './eyeContactClassifier';
 import {
   extractBlendshapeFeatures,
   extractLandmarkFeatures,
-  computeHeadMovement,
   computeExpressionEnergy,
   type ExpressionFeatures,
 } from './expressionAnalysis';
@@ -27,15 +26,12 @@ export class VideoPipeline {
   private eventBus: EventBus;
   private config: VideoPipelineConfig;
 
-  private previousLandmarks: Record<ParticipantRole, FaceLandmark[] | null> = {
-    tutor: null,
-    student: null,
-  };
-  private previousTimestamp: Record<ParticipantRole, number> = {
-    tutor: 0,
-    student: 0,
-  };
   private expressionHistory: Record<ParticipantRole, ExpressionFeatures[]> = {
+    tutor: [],
+    student: [],
+  };
+
+  private pitchHistory: Record<ParticipantRole, number[]> = {
     tutor: [],
     student: [],
   };
@@ -80,34 +76,28 @@ export class VideoPipeline {
     const eyeContact = classifyEyeContact(gaze);
 
     // Expression features
-    let features: ExpressionFeatures;
-    if (result.blendshapes && result.blendshapes.length > 0) {
-      features = extractBlendshapeFeatures(result.blendshapes);
-    } else {
-      features = extractLandmarkFeatures(result.landmarks);
-    }
+    const features: ExpressionFeatures =
+      result.blendshapes && result.blendshapes.length > 0
+        ? extractBlendshapeFeatures(result.blendshapes)
+        : extractLandmarkFeatures(result.landmarks);
 
-    // Head movement
-    const deltaMs = frame.timestamp - (this.previousTimestamp[frame.participant] || frame.timestamp);
-    const headMovement = computeHeadMovement(
-      result.landmarks,
-      this.previousLandmarks[frame.participant],
-      deltaMs,
-    );
-    features = { ...features, headMovement };
-
-    // Update history
+    // Update expression history
     const history = this.expressionHistory[frame.participant];
     history.push(features);
     if (history.length > this.config.expressionHistorySize) {
       history.shift();
     }
 
-    const expressionEnergy = computeExpressionEnergy(features, history);
+    // Update pitch history (for head nod detection)
+    const pitchHist = this.pitchHistory[frame.participant];
+    if (result.headPose) {
+      pitchHist.push(result.headPose.pitch);
+      if (pitchHist.length > this.config.expressionHistorySize) {
+        pitchHist.shift();
+      }
+    }
 
-    // Store for next frame
-    this.previousLandmarks[frame.participant] = result.landmarks;
-    this.previousTimestamp[frame.participant] = frame.timestamp;
+    const exprResult = computeExpressionEnergy(features, history, undefined, pitchHist);
 
     const dp: MetricDataPoint = {
       source: 'video',
@@ -116,7 +106,18 @@ export class VideoPipeline {
       faceDetected: true,
       faceConfidence: result.confidence,
       eyeContact,
-      expressionEnergy,
+      expressionEnergy: exprResult.energy,
+      // Computed activity scores (variance-based)
+      blinkActivity: exprResult.blinkActivity,
+      browActivity: exprResult.browActivity,
+      lipActivity: exprResult.lipActivity,
+      genuineSmile: exprResult.genuineSmile,
+      // New engagement metrics (debug only)
+      headNodActivity: exprResult.headNodActivity,
+      eyeWideness: exprResult.eyeWideness,
+      confusionIndex: exprResult.confusionIndex,
+      lipTension: exprResult.lipTension,
+      frustration: exprResult.frustration,
     };
 
     this.eventBus.emit(EventType.VIDEO_METRICS, dp);

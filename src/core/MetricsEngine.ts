@@ -4,6 +4,7 @@ import type {
   ParticipantMetrics,
   SessionMetrics,
   EngagementTrend,
+  EnergyBreakdown,
 } from '../types';
 
 export interface MetricsEngineConfig {
@@ -82,6 +83,30 @@ function buildParticipantMetrics(
     isSpeaking: audio?.isSpeaking ?? false,
     faceDetected,
     faceConfidence,
+    energyBreakdown: buildEnergyBreakdown(video, audio),
+  };
+}
+
+function buildEnergyBreakdown(
+  video: MetricDataPoint | null,
+  audio: MetricDataPoint | null,
+): EnergyBreakdown {
+  return {
+    blinkActivity: video?.blinkActivity ?? 0,
+    browActivity: video?.browActivity ?? 0,
+    lipActivity: video?.lipActivity ?? 0,
+    genuineSmile: video?.genuineSmile ?? 0,
+    expressionEnergy: video?.expressionEnergy ?? 0,
+    headNodActivity: video?.headNodActivity ?? 0,
+    eyeWideness: video?.eyeWideness ?? 0,
+    confusionIndex: video?.confusionIndex ?? 0,
+    lipTension: video?.lipTension ?? 0,
+    frustration: video?.frustration ?? 0,
+    volume: audio?.volume ?? 0,
+    volumeVariance: audio?.volumeVariance ?? 0,
+    spectralBrightness: audio?.spectralBrightness ?? 0,
+    speechRate: audio?.speechRate ?? 0,
+    voiceEnergy: audio?.voiceEnergy ?? 0,
   };
 }
 
