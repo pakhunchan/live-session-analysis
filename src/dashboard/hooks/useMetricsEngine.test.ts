@@ -11,6 +11,7 @@ function makeSnapshot(overrides: Partial<MetricSnapshot> = {}): MetricSnapshot {
     isSpeaking: false,
     faceDetected: true,
     faceConfidence: 0.9,
+    distractionDurationMs: 0,
   };
   const defaultSession: SessionMetrics = {
     interruptionCount: 0,
@@ -66,6 +67,7 @@ describe('useMetricsEngine (EventBus integration)', () => {
         isSpeaking: true,
         faceDetected: true,
         faceConfidence: 0.95,
+        distractionDurationMs: 0,
       },
     }));
 

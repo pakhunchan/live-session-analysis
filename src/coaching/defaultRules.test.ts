@@ -10,6 +10,7 @@ function makeParticipant(overrides: Partial<ParticipantMetrics> = {}): Participa
     isSpeaking: false,
     faceDetected: true,
     faceConfidence: 0.9,
+    distractionDurationMs: 0,
     ...overrides,
   };
 }
@@ -60,11 +61,11 @@ describe('defaultRules', () => {
     expect(rule.condition(snap)).toBe(false);
   });
 
-  // low_eye_contact
-  it('low_eye_contact triggers when student eye contact < 0.3 and face detected', () => {
+  // low_eye_contact (sustained distraction > 4s)
+  it('low_eye_contact triggers when student distracted > 4 seconds', () => {
     const rule = findRule('low_eye_contact');
     const snap = makeSnapshot({
-      student: { eyeContactScore: 0.2, faceDetected: true },
+      student: { faceDetected: true, distractionDurationMs: 5000 },
     });
     expect(rule.condition(snap)).toBe(true);
   });
@@ -72,7 +73,15 @@ describe('defaultRules', () => {
   it('low_eye_contact does NOT trigger when face not detected', () => {
     const rule = findRule('low_eye_contact');
     const snap = makeSnapshot({
-      student: { eyeContactScore: 0.1, faceDetected: false },
+      student: { faceDetected: false, distractionDurationMs: 5000 },
+    });
+    expect(rule.condition(snap)).toBe(false);
+  });
+
+  it('low_eye_contact does NOT trigger when distraction < 4 seconds', () => {
+    const rule = findRule('low_eye_contact');
+    const snap = makeSnapshot({
+      student: { faceDetected: true, distractionDurationMs: 3000 },
     });
     expect(rule.condition(snap)).toBe(false);
   });

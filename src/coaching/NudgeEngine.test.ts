@@ -12,6 +12,7 @@ function makeParticipant(overrides: Partial<ParticipantMetrics> = {}): Participa
     isSpeaking: false,
     faceDetected: true,
     faceConfidence: 0.9,
+    distractionDurationMs: 0,
     ...overrides,
   };
 }

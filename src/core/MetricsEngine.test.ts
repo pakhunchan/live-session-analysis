@@ -35,6 +35,7 @@ function makeSnapshot(overrides: Partial<{
       isSpeaking: false,
       faceDetected: true,
       faceConfidence: 0.9,
+      distractionDurationMs: 0,
     },
     student: {
       eyeContactScore: overrides.studentEye ?? 0.5,
@@ -43,6 +44,7 @@ function makeSnapshot(overrides: Partial<{
       isSpeaking: false,
       faceDetected: true,
       faceConfidence: 0.9,
+      distractionDurationMs: 0,
     },
     session: {
       interruptionCount: 0,
