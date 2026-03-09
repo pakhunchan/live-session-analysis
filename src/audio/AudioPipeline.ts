@@ -77,6 +77,9 @@ export class AudioPipeline {
     this.talkTime.update(tutorSpeaking, studentSpeaking, timestamp);
     this.interruptionDetector.update(tutorSpeaking, studentSpeaking, timestamp);
 
+    // Normalized spectral brightness (0-1, centroid typically 500-4000 Hz)
+    const spectralBrightness = Math.min(1, spectralCentroid / 4000);
+
     // Emit
     const dp: MetricDataPoint = {
       source: 'audio',
@@ -85,6 +88,10 @@ export class AudioPipeline {
       isSpeaking,
       voiceEnergy,
       amplitude: rms,
+      volume: volumeLevel,
+      volumeVariance,
+      spectralBrightness,
+      speechRate,
     };
 
     this.eventBus.emit(EventType.AUDIO_METRICS, dp);
