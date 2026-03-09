@@ -11,6 +11,8 @@ export interface EnergyBreakdown {
   headNodActivity: number;  // pitch variance — active listening signal
   eyeWideness: number;      // AU5 — surprise / "aha" moments
   lipTension: number;       // mouthPress + mouthRollLower — silent concentration
+  gazeVariationX: number;   // rolling std dev of horizontal gaze — eye wandering
+  gazeVariationY: number;   // rolling std dev of vertical gaze
   // Audio sub-scores — all 0-1
   volume: number;
   volumeVariance: number;
@@ -26,6 +28,7 @@ export interface ParticipantMetrics {
   isSpeaking: boolean;
   faceDetected: boolean;
   faceConfidence: number;     // 0-1
+  distractionDurationMs: number;  // continuous low eye-contact duration
   energyBreakdown?: EnergyBreakdown;
 }
 
@@ -66,6 +69,8 @@ export interface MetricDataPoint {
   headNodActivity?: number;
   eyeWideness?: number;
   lipTension?: number;
+  gazeVariationX?: number;
+  gazeVariationY?: number;
   // Audio sub-scores
   volume?: number;
   volumeVariance?: number;

@@ -16,6 +16,7 @@ export default function ParticipantCard({ role, metrics, color }: ParticipantCar
     isSpeaking: false,
     faceDetected: false,
     faceConfidence: 0,
+    distractionDurationMs: 0,
   };
 
   return (
@@ -63,6 +64,8 @@ function EnergyDebug({ breakdown: b }: { breakdown: EnergyBreakdown }) {
           <DebugRow label="Nod" value={b.headNodActivity} />
           <DebugRow label="EyeWide" value={b.eyeWideness} />
           <DebugRow label="LipTens" value={b.lipTension} />
+          <DebugRow label="GazeX" value={b.gazeVariationX} />
+          <DebugRow label="GazeY" value={b.gazeVariationY} />
         </div>
         <div style={styles.debugCol}>
           <div style={styles.debugColTitle}>Audio (80%)</div>

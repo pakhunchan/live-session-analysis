@@ -2,6 +2,7 @@ import type {
   MetricDataPoint,
   MetricSnapshot,
   ParticipantMetrics,
+  ParticipantRole,
   SessionMetrics,
   EngagementTrend,
   EnergyBreakdown,
@@ -36,6 +37,7 @@ function defaultParticipantMetrics(): ParticipantMetrics {
     isSpeaking: false,
     faceDetected: false,
     faceConfidence: 0,
+    distractionDurationMs: 0,
   };
 }
 
@@ -52,9 +54,10 @@ export function computeSnapshot(
   sessionElapsedMs: number,
   recentSnapshots: MetricSnapshot[],
   trendWindowSize: number,
+  distractionDurations: Record<ParticipantRole, number> = { tutor: 0, student: 0 },
 ): MetricSnapshot {
-  const tutor = buildParticipantMetrics(tutorAcc, sessionElapsedMs);
-  const student = buildParticipantMetrics(studentAcc, sessionElapsedMs);
+  const tutor = buildParticipantMetrics(tutorAcc, sessionElapsedMs, distractionDurations.tutor);
+  const student = buildParticipantMetrics(studentAcc, sessionElapsedMs, distractionDurations.student);
 
   const session: SessionMetrics = {
     interruptionCount,
@@ -69,6 +72,7 @@ export function computeSnapshot(
 function buildParticipantMetrics(
   acc: ParticipantAccumulator,
   sessionElapsedMs: number,
+  distractionDurationMs: number = 0,
 ): ParticipantMetrics {
   const video = acc.latestVideo;
   const audio = acc.latestAudio;
@@ -83,6 +87,7 @@ function buildParticipantMetrics(
     isSpeaking: audio?.isSpeaking ?? false,
     faceDetected,
     faceConfidence,
+    distractionDurationMs,
     energyBreakdown: buildEnergyBreakdown(video, audio),
   };
 }
@@ -100,6 +105,8 @@ function buildEnergyBreakdown(
     headNodActivity: video?.headNodActivity ?? 0,
     eyeWideness: video?.eyeWideness ?? 0,
     lipTension: video?.lipTension ?? 0,
+    gazeVariationX: video?.gazeVariationX ?? 0,
+    gazeVariationY: video?.gazeVariationY ?? 0,
     volume: audio?.volume ?? 0,
     volumeVariance: audio?.volumeVariance ?? 0,
     spectralBrightness: audio?.spectralBrightness ?? 0,
@@ -170,6 +177,14 @@ export class MetricsEngine {
   private currentSilenceDurationMs = 0;
   private lastSilenceCheckTime = 0;
 
+  private distractionState: Record<ParticipantRole, {
+    lastDistractedAt: number | null;
+    durationMs: number;
+  }> = {
+    tutor: { lastDistractedAt: null, durationMs: 0 },
+    student: { lastDistractedAt: null, durationMs: 0 },
+  };
+
   private tutorAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0, lastAudioTimestamp: null };
   private studentAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0, lastAudioTimestamp: null };
 
@@ -207,6 +222,22 @@ export class MetricsEngine {
 
     if (dp.source === 'video') {
       acc.latestVideo = dp;
+
+      // Distraction tracking: sustained low eye contact
+      const ds = this.distractionState[dp.participant];
+      const eyeContact = dp.eyeContact ?? 0;
+      const isDistracted = (dp.faceDetected ?? false) && eyeContact < 0.3;
+
+      if (isDistracted) {
+        if (ds.lastDistractedAt !== null) {
+          const delta = dp.timestamp - ds.lastDistractedAt;
+          ds.durationMs += Math.min(delta, 2000); // clamp to prevent huge jumps
+        }
+        ds.lastDistractedAt = dp.timestamp;
+      } else {
+        ds.lastDistractedAt = null;
+        ds.durationMs = 0;
+      }
     } else {
       // Update speaking accumulator using actual time delta between audio samples
       if (dp.isSpeaking && acc.lastAudioTimestamp !== null) {
@@ -257,6 +288,10 @@ export class MetricsEngine {
       sessionElapsedMs,
       this.history,
       this.config.trendWindowSize,
+      {
+        tutor: this.distractionState.tutor.durationMs,
+        student: this.distractionState.student.durationMs,
+      },
     );
   }
 }

@@ -22,7 +22,7 @@ export const defaultRules: NudgeRule[] = [
     priority: 'medium',
     cooldownMs: 90_000,
     condition: (snap) =>
-      snap.student.faceDetected && snap.student.eyeContactScore < 0.3,
+      snap.student.faceDetected && snap.student.distractionDurationMs > 4000,
   },
   {
     type: 'tutor_talk_dominant',

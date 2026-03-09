@@ -21,6 +21,13 @@ const DEFAULT_CONFIG: VideoPipelineConfig = {
   expressionHistorySize: 10,
 };
 
+function stdDev(values: number[]): number {
+  if (values.length < 2) return 0;
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const v = values.reduce((sum, x) => sum + (x - mean) ** 2, 0) / values.length;
+  return Math.sqrt(v);
+}
+
 export class VideoPipeline {
   private detector: IFaceDetector;
   private eventBus: EventBus;
@@ -35,6 +42,13 @@ export class VideoPipeline {
     tutor: [],
     student: [],
   };
+
+  private gazeHistory: Record<ParticipantRole, { x: number; y: number }[]> = {
+    tutor: [],
+    student: [],
+  };
+
+  private static readonly GAZE_HISTORY_SIZE = 100;
 
   private totalFrames = 0;
   private degradedFrames = 0;
@@ -97,6 +111,21 @@ export class VideoPipeline {
       }
     }
 
+    // Update gaze history (for gaze variation — eye wandering detection)
+    const gazeHist = this.gazeHistory[frame.participant];
+    gazeHist.push({ x: gaze.horizontalRatio, y: gaze.verticalRatio });
+    if (gazeHist.length > VideoPipeline.GAZE_HISTORY_SIZE) {
+      gazeHist.shift();
+    }
+
+    // Compute gaze variation (std dev scaled to 0-1)
+    let gazeVariationX = 0;
+    let gazeVariationY = 0;
+    if (gazeHist.length >= 2) {
+      gazeVariationX = Math.min(1, stdDev(gazeHist.map((g) => g.x)) * 5);
+      gazeVariationY = Math.min(1, stdDev(gazeHist.map((g) => g.y)) * 5);
+    }
+
     const exprResult = computeExpressionEnergy(features, history, undefined, pitchHist);
 
     const dp: MetricDataPoint = {
@@ -116,6 +145,8 @@ export class VideoPipeline {
       headNodActivity: exprResult.headNodActivity,
       eyeWideness: exprResult.eyeWideness,
       lipTension: exprResult.lipTension,
+      gazeVariationX,
+      gazeVariationY,
     };
 
     this.eventBus.emit(EventType.VIDEO_METRICS, dp);
