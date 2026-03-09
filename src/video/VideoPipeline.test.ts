@@ -102,10 +102,6 @@ describe('VideoPipeline', () => {
       ...(result.blendshapes ?? []),
       { categoryName: 'eyeWideLeft', score: 0.6 },
       { categoryName: 'eyeWideRight', score: 0.6 },
-      { categoryName: 'browDownLeft', score: 0.5 },
-      { categoryName: 'browDownRight', score: 0.5 },
-      { categoryName: 'eyeSquintLeft', score: 0.4 },
-      { categoryName: 'eyeSquintRight', score: 0.4 },
     ];
     const detector = new MockFaceDetector(result);
     const bus = new EventBus();
@@ -118,11 +114,8 @@ describe('VideoPipeline', () => {
 
     expect(events[0].eyeWideness).toBeDefined();
     expect(events[0].eyeWideness).toBeGreaterThan(0);
-    expect(events[0].confusionIndex).toBeDefined();
-    expect(events[0].confusionIndex).toBeGreaterThan(0);
     expect(events[0].headNodActivity).toBeDefined();
     expect(events[0].lipTension).toBeDefined();
-    expect(events[0].frustration).toBeDefined();
   });
 
   it('tracks degradation rate correctly', async () => {

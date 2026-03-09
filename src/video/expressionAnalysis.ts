@@ -12,9 +12,7 @@ export interface ExpressionFeatures {
   genuineSmile: number;   // 0-1, smile (mouthSmile + cheekSquint bonus)
   // New engagement signals (instantaneous)
   eyeWideness: number;    // 0-1, AU5 — surprise / "aha" moments
-  confusionIndex: number; // 0-1, (browDown + eyeSquint) / 2 — AU4+AU7
   lipTension: number;     // 0-1, mouthPress + mouthRollLower — silent concentration
-  frustration: number;    // 0-1, noseSneer + mouthStretch — negative affect
 }
 
 export interface ExpressionWeights {
@@ -48,7 +46,7 @@ function findBlendshape(blendshapes: BlendshapeEntry[], name: string): number {
  */
 export function extractBlendshapeFeatures(blendshapes: BlendshapeEntry[]): ExpressionFeatures {
   if (!blendshapes || blendshapes.length === 0) {
-    return { eyeOpenness: 0.5, browPosition: 0, lipOpenness: 0, genuineSmile: 0, eyeWideness: 0, confusionIndex: 0, lipTension: 0, frustration: 0 };
+    return { eyeOpenness: 0.5, browPosition: 0, lipOpenness: 0, genuineSmile: 0, eyeWideness: 0, lipTension: 0 };
   }
 
   // Eye openness (inverted from blink — 1.0 = fully open, 0.0 = closed)
@@ -91,11 +89,6 @@ export function extractBlendshapeFeatures(blendshapes: BlendshapeEntry[]): Expre
   const eyeWideR = findBlendshape(blendshapes, 'eyeWideRight');
   const eyeWideness = Math.min(1, (eyeWideL + eyeWideR) / 2 * 15);
 
-  // Confusion index (AU4+AU7) — browDown + eyeSquint
-  const eyeSquintL = findBlendshape(blendshapes, 'eyeSquintLeft');
-  const eyeSquintR = findBlendshape(blendshapes, 'eyeSquintRight');
-  const confusionIndex = Math.min(1, (browFurrow + (eyeSquintL + eyeSquintR) / 2) / 2);
-
   // Silent concentration — mouthPress + mouthRollLower when jaw closed
   const mouthPressL = findBlendshape(blendshapes, 'mouthPressLeft');
   const mouthPressR = findBlendshape(blendshapes, 'mouthPressRight');
@@ -106,16 +99,7 @@ export function extractBlendshapeFeatures(blendshapes: BlendshapeEntry[]): Expre
   // averaging with the weak mouthPress dilutes it
   const lipTension = Math.min(1, Math.max(mouthPress, mouthRollLower) * 2 * jawClosed);
 
-  // Frustration signal (AU9+AU20) — noseSneer + mouthStretch
-  const noseSneerL = findBlendshape(blendshapes, 'noseSneerLeft');
-  const noseSneerR = findBlendshape(blendshapes, 'noseSneerRight');
-  const mouthStretchL = findBlendshape(blendshapes, 'mouthStretchLeft');
-  const mouthStretchR = findBlendshape(blendshapes, 'mouthStretchRight');
-  const noseSneer = (noseSneerL + noseSneerR) / 2;
-  const mouthStretch = (mouthStretchL + mouthStretchR) / 2;
-  const frustration = Math.min(1, (noseSneer + mouthStretch) / 2);
-
-  return { eyeOpenness, browPosition, lipOpenness, genuineSmile, eyeWideness, confusionIndex, lipTension, frustration };
+  return { eyeOpenness, browPosition, lipOpenness, genuineSmile, eyeWideness, lipTension };
 }
 
 /**
@@ -123,7 +107,7 @@ export function extractBlendshapeFeatures(blendshapes: BlendshapeEntry[]): Expre
  */
 export function extractLandmarkFeatures(landmarks: FaceLandmark[]): ExpressionFeatures {
   if (landmarks.length < 468) {
-    return { eyeOpenness: 0.5, browPosition: 0, lipOpenness: 0, genuineSmile: 0, eyeWideness: 0, confusionIndex: 0, lipTension: 0, frustration: 0 };
+    return { eyeOpenness: 0.5, browPosition: 0, lipOpenness: 0, genuineSmile: 0, eyeWideness: 0, lipTension: 0 };
   }
 
   // Eye openness from eye aspect ratio (top 159 - bottom 145)
@@ -150,7 +134,7 @@ export function extractLandmarkFeatures(landmarks: FaceLandmark[]): ExpressionFe
   const genuineSmile = Math.min(1, mouthWidth / 0.15);
 
   // Landmark fallback: new engagement features not available without blendshapes
-  return { eyeOpenness, browPosition, lipOpenness, genuineSmile, eyeWideness: 0, confusionIndex: 0, lipTension: 0, frustration: 0 };
+  return { eyeOpenness, browPosition, lipOpenness, genuineSmile, eyeWideness: 0, lipTension: 0 };
 }
 
 /**
@@ -171,9 +155,7 @@ export interface ExpressionEnergyResult {
   // New engagement metrics (debug only — not in energy score)
   headNodActivity: number;
   eyeWideness: number;
-  confusionIndex: number;
   lipTension: number;
-  frustration: number;
 }
 
 /**
@@ -194,9 +176,7 @@ export function computeExpressionEnergy(
 ): ExpressionEnergyResult {
   // New instantaneous metrics (always available)
   const eyeWideness = features.eyeWideness;
-  const confusionIndex = features.confusionIndex;
   const lipTension = features.lipTension;
-  const frustration = features.frustration;
 
   // Head nod activity: variance of pitch over history window
   const headNodActivity = headPitchHistory.length >= 2
@@ -213,9 +193,7 @@ export function computeExpressionEnergy(
       genuineSmile: features.genuineSmile,
       headNodActivity,
       eyeWideness,
-      confusionIndex,
       lipTension,
-      frustration,
     };
   }
 
@@ -234,5 +212,5 @@ export function computeExpressionEnergy(
     genuineSmile * weights.genuineSmile,
   );
 
-  return { energy, blinkActivity, browActivity, lipActivity, genuineSmile, headNodActivity, eyeWideness, confusionIndex, lipTension, frustration };
+  return { energy, blinkActivity, browActivity, lipActivity, genuineSmile, headNodActivity, eyeWideness, lipTension };
 }

@@ -19,9 +19,7 @@ describe('extractBlendshapeFeatures', () => {
     expect(f.lipOpenness).toBe(0);
     expect(f.genuineSmile).toBe(0);
     expect(f.eyeWideness).toBe(0);
-    expect(f.confusionIndex).toBe(0);
     expect(f.lipTension).toBe(0);
-    expect(f.frustration).toBe(0);
   });
 
   it('closed eyes produce low eyeOpenness', () => {
@@ -85,16 +83,6 @@ describe('extractBlendshapeFeatures', () => {
     expect(fHigh.eyeWideness).toBe(1); // 0.08 * 15 = 1.2 → clamped to 1
   });
 
-  it('browDown + eyeSquint drives confusionIndex', () => {
-    const f = extractBlendshapeFeatures([
-      bs('browDownLeft', 0.6),
-      bs('browDownRight', 0.6),
-      bs('eyeSquintLeft', 0.8),
-      bs('eyeSquintRight', 0.8),
-    ]);
-    expect(f.confusionIndex).toBeGreaterThan(0.3);
-  });
-
   it('mouthPress + mouthRollLower drives lipTension when jaw closed', () => {
     const f = extractBlendshapeFeatures([
       bs('mouthPressLeft', 0.6),
@@ -112,16 +100,6 @@ describe('extractBlendshapeFeatures', () => {
       bs('jawOpen', 1.0), // jaw fully open
     ]);
     expect(fOpen.lipTension).toBe(0);
-  });
-
-  it('noseSneer + mouthStretch drives frustration', () => {
-    const f = extractBlendshapeFeatures([
-      bs('noseSneerLeft', 0.5),
-      bs('noseSneerRight', 0.5),
-      bs('mouthStretchLeft', 0.6),
-      bs('mouthStretchRight', 0.6),
-    ]);
-    expect(f.frustration).toBeGreaterThan(0.25);
   });
 
   it('smile driven by mouthSmile, cheekSquint adds bonus', () => {
@@ -151,9 +129,7 @@ describe('extractLandmarkFeatures', () => {
     const f = extractLandmarkFeatures(lm);
     expect(f.eyeOpenness).toBe(0.5);
     expect(f.eyeWideness).toBe(0);
-    expect(f.confusionIndex).toBe(0);
     expect(f.lipTension).toBe(0);
-    expect(f.frustration).toBe(0);
   });
 
   it('produces non-zero values for valid landmarks', () => {
@@ -173,18 +149,16 @@ describe('extractLandmarkFeatures', () => {
 });
 
 describe('computeExpressionEnergy', () => {
-  const still: ExpressionFeatures = { eyeOpenness: 0.9, browPosition: 0.1, lipOpenness: 0.0, genuineSmile: 0.0, eyeWideness: 0, confusionIndex: 0, lipTension: 0, frustration: 0 };
-  const talking: ExpressionFeatures = { eyeOpenness: 0.8, browPosition: 0.3, lipOpenness: 0.6, genuineSmile: 0.0, eyeWideness: 0, confusionIndex: 0, lipTension: 0, frustration: 0 };
-  const blink: ExpressionFeatures = { eyeOpenness: 0.1, browPosition: 0.1, lipOpenness: 0.0, genuineSmile: 0.0, eyeWideness: 0, confusionIndex: 0, lipTension: 0, frustration: 0 };
+  const still: ExpressionFeatures = { eyeOpenness: 0.9, browPosition: 0.1, lipOpenness: 0.0, genuineSmile: 0.0, eyeWideness: 0, lipTension: 0 };
+  const talking: ExpressionFeatures = { eyeOpenness: 0.8, browPosition: 0.3, lipOpenness: 0.6, genuineSmile: 0.0, eyeWideness: 0, lipTension: 0 };
+  const blink: ExpressionFeatures = { eyeOpenness: 0.1, browPosition: 0.1, lipOpenness: 0.0, genuineSmile: 0.0, eyeWideness: 0, lipTension: 0 };
 
   it('returns low energy with insufficient history', () => {
     const result = computeExpressionEnergy(still, [still]);
     expect(result.energy).toBeLessThan(0.1);
     expect(result.headNodActivity).toBe(0);
     expect(result.eyeWideness).toBe(0);
-    expect(result.confusionIndex).toBe(0);
     expect(result.lipTension).toBe(0);
-    expect(result.frustration).toBe(0);
   });
 
   it('static face (no variance) scores low', () => {
@@ -220,17 +194,15 @@ describe('computeExpressionEnergy', () => {
   });
 
   it('instantaneous features pass through to result', () => {
-    const confused: ExpressionFeatures = { ...still, confusionIndex: 0.7, eyeWideness: 0.5, lipTension: 0.3, frustration: 0.4 };
+    const wide: ExpressionFeatures = { ...still, eyeWideness: 0.5, lipTension: 0.3 };
     const history = Array.from({ length: 10 }, () => still);
-    const result = computeExpressionEnergy(confused, history);
-    expect(result.confusionIndex).toBe(0.7);
+    const result = computeExpressionEnergy(wide, history);
     expect(result.eyeWideness).toBe(0.5);
     expect(result.lipTension).toBe(0.3);
-    expect(result.frustration).toBe(0.4);
   });
 
   it('genuine smile adds to energy', () => {
-    const smiling: ExpressionFeatures = { eyeOpenness: 0.9, browPosition: 0.1, lipOpenness: 0.0, genuineSmile: 0.8, eyeWideness: 0, confusionIndex: 0, lipTension: 0, frustration: 0 };
+    const smiling: ExpressionFeatures = { eyeOpenness: 0.9, browPosition: 0.1, lipOpenness: 0.0, genuineSmile: 0.8, eyeWideness: 0, lipTension: 0 };
     const history = Array.from({ length: 10 }, () => still);
     const result = computeExpressionEnergy(smiling, history);
     expect(result.energy).toBeGreaterThan(0.15);
@@ -248,8 +220,8 @@ describe('computeExpressionEnergy', () => {
   });
 
   it('energy capped at 1.0', () => {
-    const extreme: ExpressionFeatures = { eyeOpenness: 1.0, browPosition: 1.0, lipOpenness: 1.0, genuineSmile: 1.0, eyeWideness: 1.0, confusionIndex: 1.0, lipTension: 1.0, frustration: 1.0 };
-    const zero: ExpressionFeatures = { eyeOpenness: 0.0, browPosition: 0.0, lipOpenness: 0.0, genuineSmile: 0.0, eyeWideness: 0, confusionIndex: 0, lipTension: 0, frustration: 0 };
+    const extreme: ExpressionFeatures = { eyeOpenness: 1.0, browPosition: 1.0, lipOpenness: 1.0, genuineSmile: 1.0, eyeWideness: 1.0, lipTension: 1.0 };
+    const zero: ExpressionFeatures = { eyeOpenness: 0.0, browPosition: 0.0, lipOpenness: 0.0, genuineSmile: 0.0, eyeWideness: 0, lipTension: 0 };
     const history = Array.from({ length: 10 }, (_, i) => (i % 2 === 0 ? extreme : zero));
     const result = computeExpressionEnergy(extreme, history);
     expect(result.energy).toBeLessThanOrEqual(1.0);

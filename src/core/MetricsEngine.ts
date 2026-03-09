@@ -99,9 +99,7 @@ function buildEnergyBreakdown(
     expressionEnergy: video?.expressionEnergy ?? 0,
     headNodActivity: video?.headNodActivity ?? 0,
     eyeWideness: video?.eyeWideness ?? 0,
-    confusionIndex: video?.confusionIndex ?? 0,
     lipTension: video?.lipTension ?? 0,
-    frustration: video?.frustration ?? 0,
     volume: audio?.volume ?? 0,
     volumeVariance: audio?.volumeVariance ?? 0,
     spectralBrightness: audio?.spectralBrightness ?? 0,
@@ -116,9 +114,9 @@ function computeEnergy(
 ): number {
   const expressionEnergy = video?.expressionEnergy ?? 0;
   const voiceEnergy = audio?.voiceEnergy ?? 0;
-  // Weighted: 40% expression, 60% voice when both present
+  // Weighted: 20% expression, 80% voice when both present
   if (video?.faceDetected && audio) {
-    return expressionEnergy * 0.4 + voiceEnergy * 0.6;
+    return expressionEnergy * 0.2 + voiceEnergy * 0.8;
   }
   if (video?.faceDetected) return expressionEnergy;
   if (audio) return voiceEnergy;

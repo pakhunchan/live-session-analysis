@@ -115,9 +115,7 @@ export class VideoPipeline {
       // New engagement metrics (debug only)
       headNodActivity: exprResult.headNodActivity,
       eyeWideness: exprResult.eyeWideness,
-      confusionIndex: exprResult.confusionIndex,
       lipTension: exprResult.lipTension,
-      frustration: exprResult.frustration,
     };
 
     this.eventBus.emit(EventType.VIDEO_METRICS, dp);

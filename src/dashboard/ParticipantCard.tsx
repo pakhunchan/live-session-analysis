@@ -52,7 +52,7 @@ function EnergyDebug({ breakdown: b }: { breakdown: EnergyBreakdown }) {
       <div style={styles.debugTitle}>Energy Breakdown</div>
       <div style={styles.debugColumns}>
         <div style={styles.debugCol}>
-          <div style={styles.debugColTitle}>Video (40%)</div>
+          <div style={styles.debugColTitle}>Video (20%)</div>
           <DebugRow label="Blink" value={b.blinkActivity} />
           <DebugRow label="Brows" value={b.browActivity} />
           <DebugRow label="Lips" value={b.lipActivity} />
@@ -61,13 +61,11 @@ function EnergyDebug({ breakdown: b }: { breakdown: EnergyBreakdown }) {
           <div style={styles.debugSectionDivider} />
           <div style={styles.debugColTitle}>New Signals</div>
           <DebugRow label="Nod" value={b.headNodActivity} />
-          <DebugRow label="Confuse" value={b.confusionIndex} />
           <DebugRow label="EyeWide" value={b.eyeWideness} />
           <DebugRow label="LipTens" value={b.lipTension} />
-          <DebugRow label="Frustr" value={b.frustration} />
         </div>
         <div style={styles.debugCol}>
-          <div style={styles.debugColTitle}>Audio (60%)</div>
+          <div style={styles.debugColTitle}>Audio (80%)</div>
           <DebugRow label="Volume" value={b.volume} />
           <DebugRow label="Variance" value={b.volumeVariance} />
           <DebugRow label="Bright" value={b.spectralBrightness} />
