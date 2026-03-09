@@ -102,7 +102,9 @@ export function extractBlendshapeFeatures(blendshapes: BlendshapeEntry[]): Expre
   const mouthRollLower = findBlendshape(blendshapes, 'mouthRollLower');
   const mouthPress = (mouthPressL + mouthPressR) / 2;
   const jawClosed = 1 - jawOpen; // gate: only counts when mouth is closed
-  const lipTension = Math.min(1, (mouthPress + mouthRollLower) / 2 * jawClosed);
+  // Use max(press, roll) — mouthRollLower carries most of the signal,
+  // averaging with the weak mouthPress dilutes it
+  const lipTension = Math.min(1, Math.max(mouthPress, mouthRollLower) * 2 * jawClosed);
 
   // Frustration signal (AU9+AU20) — noseSneer + mouthStretch
   const noseSneerL = findBlendshape(blendshapes, 'noseSneerLeft');
