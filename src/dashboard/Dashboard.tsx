@@ -1,10 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useMetricsEngine } from './hooks/useMetricsEngine';
-import ParticipantCard from './ParticipantCard';
-import SessionStatusBar from './SessionStatusBar';
-import TimelineChart from './TimelineChart';
 import VideoPreview from './VideoPreview';
 import SessionSetup from './SessionSetup';
+import Sidebar from './Sidebar';
 import AmbientBar from '../coaching/AmbientBar';
 import { SessionOrchestrator } from '../core/SessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
@@ -19,6 +17,7 @@ export default function Dashboard() {
   const [showMesh, setShowMesh] = useState(false);
   const orchestratorRef = useRef<SessionOrchestrator | null>(null);
   const [setupLoading, setSetupLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleSessionStart = useCallback(async (config: SessionSetupConfig) => {
     try {
@@ -76,56 +75,45 @@ export default function Dashboard() {
       )}
 
       {isRunning && (
-        <>
-          <AmbientBar bus={eventBus} />
+        <div style={styles.sessionLayout}>
+          <div style={styles.mainArea}>
+            <AmbientBar bus={eventBus} />
 
-          <div style={styles.videoStage}>
-            <VideoPreview
-              stream={studentStream}
-              label="Student"
-              showMesh={showMesh}
-            />
-            <div style={styles.tutorOverlay}>
+            <div style={styles.videoStage}>
               <VideoPreview
-                stream={tutorStream}
-                label="You"
+                stream={studentStream}
+                label="Student"
                 showMesh={showMesh}
               />
+              <div style={styles.tutorOverlay}>
+                <VideoPreview
+                  stream={tutorStream}
+                  label="You"
+                  showMesh={showMesh}
+                />
+              </div>
+              <label style={styles.meshToggle}>
+                <input
+                  type="checkbox"
+                  checked={showMesh}
+                  onChange={(e) => setShowMesh(e.target.checked)}
+                />
+                {' '}Show Mesh
+              </label>
             </div>
-            <label style={styles.meshToggle}>
-              <input
-                type="checkbox"
-                checked={showMesh}
-                onChange={(e) => setShowMesh(e.target.checked)}
-              />
-              {' '}Show Mesh
-            </label>
+
+            <button onClick={handleStop} style={styles.stopBtn}>
+              Stop Session
+            </button>
           </div>
 
-          <SessionStatusBar session={snapshot?.session ?? null} />
-
-          <div style={styles.participantRow}>
-            <ParticipantCard
-              role="Tutor"
-              metrics={snapshot?.tutor ?? null}
-              color="#0d6efd"
-            />
-            <ParticipantCard
-              role="Student"
-              metrics={snapshot?.student ?? null}
-              color="#6610f2"
-            />
-          </div>
-
-          <div style={styles.section}>
-            <h3 style={styles.sectionTitle}>Engagement Timeline</h3>
-            <TimelineChart history={history} height={220} />
-          </div>
-
-          <button onClick={handleStop} style={styles.stopBtn}>
-            Stop Session
-          </button>
-        </>
+          <Sidebar
+            snapshot={snapshot}
+            history={history}
+            isOpen={sidebarOpen}
+            onToggle={() => setSidebarOpen(!sidebarOpen)}
+          />
+        </div>
       )}
     </div>
   );
@@ -133,7 +121,7 @@ export default function Dashboard() {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    maxWidth: '1200px',
+    maxWidth: '100%',
     margin: '0 auto',
     padding: '1rem',
     fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -173,22 +161,19 @@ const styles: Record<string, React.CSSProperties> = {
     marginBottom: '1rem',
     fontSize: '0.9rem',
   },
-  participantRow: {
+  sessionLayout: {
     display: 'flex',
-    gap: '1rem',
-    marginTop: '1rem',
+    gap: 0,
+    position: 'relative',
   },
-  section: {
-    marginTop: '1.25rem',
-  },
-  sectionTitle: {
-    margin: '0 0 0.5rem',
-    fontSize: '1rem',
-    fontWeight: 600,
+  mainArea: {
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
   },
   videoStage: {
     position: 'relative',
-    marginTop: '1.25rem',
     borderRadius: '8px',
     overflow: 'hidden',
     background: '#000',
@@ -218,7 +203,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   stopBtn: {
     display: 'block',
-    margin: '1.5rem auto 0',
+    margin: '1rem auto 0',
     padding: '0.5rem 2rem',
     background: '#dc3545',
     color: '#fff',
