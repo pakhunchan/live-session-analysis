@@ -1,14 +1,20 @@
 import type { InputAdapter } from './InputAdapter';
 
+export interface FileInputAdapterConfig {
+  playAudio?: boolean;
+}
+
 export class FileInputAdapter implements InputAdapter {
   private videoElement: HTMLVideoElement | null = null;
   private stream: MediaStream | null = null;
   private objectUrl: string | null = null;
   private ready = false;
   private file: File | null = null;
+  private config: FileInputAdapterConfig;
 
-  constructor(file?: File) {
+  constructor(file?: File, config?: FileInputAdapterConfig) {
     this.file = file ?? null;
+    this.config = config ?? {};
   }
 
   setFile(file: File): void {
@@ -24,7 +30,7 @@ export class FileInputAdapter implements InputAdapter {
 
     this.videoElement = document.createElement('video');
     this.videoElement.src = this.objectUrl;
-    this.videoElement.muted = true;
+    this.videoElement.muted = !this.config.playAudio;
     this.videoElement.playsInline = true;
     this.videoElement.loop = true;
 

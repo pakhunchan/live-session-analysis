@@ -7,7 +7,11 @@ export interface LiveInputConfig {
 
 const DEFAULT_CONFIG: LiveInputConfig = {
   video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
-  audio: true,
+  audio: {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+  },
 };
 
 export class LiveInputAdapter implements InputAdapter {

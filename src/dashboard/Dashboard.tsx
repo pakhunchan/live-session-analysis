@@ -4,37 +4,34 @@ import ParticipantCard from './ParticipantCard';
 import SessionStatusBar from './SessionStatusBar';
 import TimelineChart from './TimelineChart';
 import VideoPreview from './VideoPreview';
+import SessionSetup from './SessionSetup';
 import AmbientBar from '../coaching/AmbientBar';
-import { FileInputAdapter } from '../inputs/FileInputAdapter';
-import { LiveInputAdapter } from '../inputs/LiveInputAdapter';
+import { SessionOrchestrator } from '../core/SessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
-import type { InputAdapter } from '../inputs/InputAdapter';
+import type { SessionSetupConfig } from '../types/session';
 
 export default function Dashboard() {
   const { snapshot, history, isRunning, start, stop, eventBus, streamManager } = useMetricsEngine();
   const [status, setStatus] = useState('Ready');
   const [error, setError] = useState<string | null>(null);
   const [tutorStream, setTutorStream] = useState<MediaStream | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [studentStream, setStudentStream] = useState<MediaStream | null>(null);
   const [showMesh, setShowMesh] = useState(false);
-  const adapterRef = useRef<InputAdapter | null>(null);
+  const orchestratorRef = useRef<SessionOrchestrator | null>(null);
+  const [setupLoading, setSetupLoading] = useState(false);
 
-  const initAndStart = useCallback(async (adapter: InputAdapter) => {
+  const handleSessionStart = useCallback(async (config: SessionSetupConfig) => {
     try {
       setError(null);
-      setStatus('Initializing face detector...');
+      setSetupLoading(true);
+      setStatus('Initializing streams...');
 
-      await adapter.initialize();
-      adapterRef.current = adapter;
+      const orchestrator = new SessionOrchestrator();
+      orchestratorRef.current = orchestrator;
 
-      const videoEl = adapter.getVideoElement();
-      const stream = adapter.getMediaStream();
-
-      if (videoEl) streamManager.setVideoElement('tutor', videoEl);
-      if (stream) {
-        streamManager.setStream('tutor', stream);
-        setTutorStream(stream);
-      }
+      const { streams } = await orchestrator.initialize(config, streamManager);
+      setTutorStream(streams.tutor);
+      setStudentStream(streams.student);
 
       const detector = new MediaPipeFaceDetector();
       setStatus('Loading MediaPipe model...');
@@ -45,40 +42,19 @@ export default function Dashboard() {
     } catch (err) {
       setError((err as Error).message);
       setStatus('Error');
+    } finally {
+      setSetupLoading(false);
     }
   }, [start, streamManager]);
 
-  const handleFileLoad = useCallback(async (file: File) => {
-    const adapter = new FileInputAdapter(file);
-    await initAndStart(adapter);
-  }, [initAndStart]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('video/')) {
-      handleFileLoad(file);
-    }
-  }, [handleFileLoad]);
-
-  const handleLiveCamera = useCallback(async () => {
-    const adapter = new LiveInputAdapter();
-    await initAndStart(adapter);
-  }, [initAndStart]);
-
   const handleStop = useCallback(() => {
     stop();
-    adapterRef.current?.dispose();
-    adapterRef.current = null;
+    orchestratorRef.current?.dispose();
+    orchestratorRef.current = null;
     setTutorStream(null);
+    setStudentStream(null);
     setStatus('Stopped');
   }, [stop]);
-
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleFileLoad(file);
-  }, [handleFileLoad]);
 
   return (
     <div style={styles.container}>
@@ -96,24 +72,7 @@ export default function Dashboard() {
       {error && <div style={styles.errorBanner}>{error}</div>}
 
       {!isRunning && (
-        <div
-          onDrop={handleDrop}
-          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          style={{
-            ...styles.dropZone,
-            ...(dragging ? styles.dropZoneActive : {}),
-          }}
-        >
-          <p style={styles.dropTitle}>Drop a video file to analyze</p>
-          <p style={styles.dropSub}>or use the buttons below</p>
-          <div style={styles.startControls}>
-            <input type="file" accept="video/*" onChange={handleFileInput} />
-            <button onClick={handleLiveCamera} style={styles.cameraBtn}>
-              Use Live Camera
-            </button>
-          </div>
-        </div>
+        <SessionSetup onStart={handleSessionStart} isLoading={setupLoading} />
       )}
 
       {isRunning && (
@@ -143,6 +102,11 @@ export default function Dashboard() {
             <VideoPreview
               stream={tutorStream}
               label="Tutor"
+              showMesh={showMesh}
+            />
+            <VideoPreview
+              stream={studentStream}
+              label="Student"
               showMesh={showMesh}
             />
           </div>
@@ -205,46 +169,6 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '6px',
     marginBottom: '1rem',
     fontSize: '0.9rem',
-  },
-  dropZone: {
-    border: '2px dashed #adb5bd',
-    borderRadius: '12px',
-    padding: '3rem 2rem',
-    textAlign: 'center',
-    background: '#f8f9fa',
-    transition: 'all 0.2s',
-  },
-  dropZoneActive: {
-    borderColor: '#0d6efd',
-    background: '#e7f1ff',
-  },
-  dropTitle: {
-    margin: '0 0 0.25rem',
-    fontSize: '1.1rem',
-    fontWeight: 600,
-    color: '#495057',
-  },
-  dropSub: {
-    margin: '0 0 1.5rem',
-    fontSize: '0.85rem',
-    color: '#6c757d',
-  },
-  startControls: {
-    display: 'flex',
-    gap: '1rem',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-  },
-  cameraBtn: {
-    padding: '0.5rem 1.25rem',
-    background: '#198754',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    fontSize: '0.9rem',
-    fontWeight: 500,
   },
   participantRow: {
     display: 'flex',

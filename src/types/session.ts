@@ -1,6 +1,19 @@
 import type { MetricSnapshot, ParticipantMetrics } from './metrics';
 import type { Nudge } from './coaching';
 
+export type InputSourceType = 'file' | 'webcam';
+
+export interface ParticipantInputConfig {
+  source: InputSourceType;
+  file?: File;                    // required when source === 'file'
+  playAudio?: boolean;            // for file: unmute speaker output so student can hear
+}
+
+export interface SessionSetupConfig {
+  tutor: ParticipantInputConfig;
+  student: ParticipantInputConfig;
+}
+
 export interface SessionConfig {
   sessionId: string;
   subject?: string;
