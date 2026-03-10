@@ -60,35 +60,41 @@ export class AudioPipeline {
     const rms = computeRMS(timeDomainData);
     const centroidHz = computeSpectralCentroid(timeDomainData, sampleRate);
 
-    // Update RMS history
-    const history = this.rmsHistory[participant];
-    history.push(rms);
-    if (history.length > this.config.rmsHistorySize) {
-      history.shift();
-    }
-
     // VAD — prefer VadManager (ML-based), fall back to threshold VAD
     // Always update fallback so it stays warm even when VadManager is active
     const fallbackResult = this.fallbackVads[participant].update(rms, chunk.frequencyData, sampleRate);
     const isSpeaking = this.vadManager?.isSpeaking(participant) ?? fallbackResult;
 
-    // Speech rate
-    const speechRate = estimateSpeechRate(history, this.config.sampleRateHz);
+    // Only add to RMS history while speaking — keeps history clean of ambient noise
+    const history = this.rmsHistory[participant];
+    if (isSpeaking) {
+      history.push(rms);
+      if (history.length > this.config.rmsHistorySize) {
+        history.shift();
+      }
+    }
 
-    // Pitch tracking
+    // Pitch tracking (always runs — has its own silence gating + decay)
     const { pitch, pitchVariance } = this.pitchTrackers[participant].update(timeDomainData, sampleRate);
 
-    // Volume variance from history
-    const mean = history.reduce((a, b) => a + b, 0) / history.length;
-    const volumeVariance = Math.min(1,
-      history.reduce((sum, v) => sum + (v - mean) ** 2, 0) / history.length * 100
-    );
+    // VAD gate: only compute feature metrics when speaking to filter ambient noise
+    let speechRate = 0;
+    let volumeVariance = 0;
+    let spectralBrightness = 0;
+    let voiceEnergy = 0;
 
-    // Spectral brightness: normalize centroid Hz to 0-1
-    const spectralBrightness = Math.min(1, centroidHz / 4000);
+    if (isSpeaking && history.length >= 2) {
+      speechRate = estimateSpeechRate(history, this.config.sampleRateHz);
 
-    // Voice energy (no raw volume — gain-dependent and unreliable)
-    const voiceEnergy = computeVoiceEnergy(volumeVariance, spectralBrightness, speechRate);
+      const mean = history.reduce((a, b) => a + b, 0) / history.length;
+      volumeVariance = Math.min(1,
+        history.reduce((sum, v) => sum + (v - mean) ** 2, 0) / history.length * 100
+      );
+
+      spectralBrightness = Math.min(1, centroidHz / 4000);
+
+      voiceEnergy = computeVoiceEnergy(volumeVariance, spectralBrightness, speechRate);
+    }
 
     // Talk time & interruption tracking — use same VAD fallback logic
     const tutorSpeaking = this.vadManager?.isSpeaking('tutor')

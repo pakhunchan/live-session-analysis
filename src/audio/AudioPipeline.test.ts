@@ -80,9 +80,10 @@ describe('AudioPipeline', () => {
     expect(typeof events[0].voiceEnergy).toBe('number');
   });
 
-  it('RMS history accumulates', () => {
+  it('RMS history accumulates while speaking', () => {
     const bus = new EventBus();
     const pipeline = new AudioPipeline(bus);
+    pipeline.setVadManager(makeMockVadManager({ tutor: true }));
 
     pipeline.processChunk(makeChunk('tutor', 0.1, 1000));
     pipeline.processChunk(makeChunk('tutor', 0.2, 1050));
@@ -95,6 +96,7 @@ describe('AudioPipeline', () => {
   it('history is capped at configured size', () => {
     const bus = new EventBus();
     const pipeline = new AudioPipeline(bus, { rmsHistorySize: 5, sampleRateHz: 20 });
+    pipeline.setVadManager(makeMockVadManager({ tutor: true }));
 
     for (let i = 0; i < 10; i++) {
       pipeline.processChunk(makeChunk('tutor', 0.1, i * 50));
