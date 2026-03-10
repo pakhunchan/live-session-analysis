@@ -5,9 +5,10 @@ interface VideoPreviewProps {
   stream: MediaStream | null;
   label: string;
   showMesh?: boolean;
+  mirrored?: boolean;
 }
 
-export default function VideoPreview({ stream, label, showMesh }: VideoPreviewProps) {
+export default function VideoPreview({ stream, label, showMesh, mirrored }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -24,7 +25,7 @@ export default function VideoPreview({ stream, label, showMesh }: VideoPreviewPr
         autoPlay
         muted
         playsInline
-        style={styles.video}
+        style={{ ...styles.video, ...(mirrored ? { transform: 'scaleX(-1)' } : {}) }}
       />
       {showMesh && <FaceMeshCanvas videoRef={videoRef} />}
       <div style={styles.label}>{label}</div>

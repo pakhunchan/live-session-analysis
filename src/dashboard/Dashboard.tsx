@@ -93,6 +93,7 @@ export default function Dashboard() {
                   stream={tutorStream}
                   label="You"
                   showMesh={showMesh}
+                  mirrored
                 />
               </div>
               <label style={styles.meshToggle}>
