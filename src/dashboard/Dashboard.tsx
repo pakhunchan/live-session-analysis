@@ -78,6 +78,30 @@ export default function Dashboard() {
       {isRunning && (
         <>
           <AmbientBar bus={eventBus} />
+
+          <div style={styles.videoStage}>
+            <VideoPreview
+              stream={studentStream}
+              label="Student"
+              showMesh={showMesh}
+            />
+            <div style={styles.tutorOverlay}>
+              <VideoPreview
+                stream={tutorStream}
+                label="You"
+                showMesh={showMesh}
+              />
+            </div>
+            <label style={styles.meshToggle}>
+              <input
+                type="checkbox"
+                checked={showMesh}
+                onChange={(e) => setShowMesh(e.target.checked)}
+              />
+              {' '}Show Mesh
+            </label>
+          </div>
+
           <SessionStatusBar session={snapshot?.session ?? null} />
 
           <div style={styles.participantRow}>
@@ -98,27 +122,6 @@ export default function Dashboard() {
             <TimelineChart history={history} height={220} />
           </div>
 
-          <div style={styles.videoRow}>
-            <VideoPreview
-              stream={tutorStream}
-              label="Tutor"
-              showMesh={showMesh}
-            />
-            <VideoPreview
-              stream={studentStream}
-              label="Student"
-              showMesh={showMesh}
-            />
-          </div>
-          <label style={styles.meshToggle}>
-            <input
-              type="checkbox"
-              checked={showMesh}
-              onChange={(e) => setShowMesh(e.target.checked)}
-            />
-            {' '}Show Mesh
-          </label>
-
           <button onClick={handleStop} style={styles.stopBtn}>
             Stop Session
           </button>
@@ -130,7 +133,7 @@ export default function Dashboard() {
 
 const styles: Record<string, React.CSSProperties> = {
   container: {
-    maxWidth: '960px',
+    maxWidth: '1200px',
     margin: '0 auto',
     padding: '1rem',
     fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -183,17 +186,35 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '1rem',
     fontWeight: 600,
   },
-  videoRow: {
-    display: 'flex',
-    gap: '1rem',
+  videoStage: {
+    position: 'relative',
     marginTop: '1.25rem',
+    borderRadius: '8px',
+    overflow: 'hidden',
+    background: '#000',
+  },
+  tutorOverlay: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    width: 200,
+    borderRadius: '8px',
+    overflow: 'hidden',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+    border: '2px solid rgba(255,255,255,0.3)',
+    zIndex: 2,
   },
   meshToggle: {
-    display: 'block',
-    marginTop: '0.5rem',
-    fontSize: '0.8rem',
-    color: '#495057',
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    fontSize: '0.75rem',
+    color: '#fff',
     cursor: 'pointer',
+    background: 'rgba(0,0,0,0.5)',
+    padding: '4px 8px',
+    borderRadius: '4px',
+    zIndex: 2,
   },
   stopBtn: {
     display: 'block',
