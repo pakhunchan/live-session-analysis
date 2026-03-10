@@ -12,13 +12,14 @@ export interface EnergyBreakdown {
   eyeWideness: number;      // AU5 — surprise / "aha" moments
   lipTension: number;       // mouthPress + mouthRollLower — silent concentration
   gazeVariationX: number;   // rolling std dev of horizontal gaze — eye wandering
-  gazeVariationY: number;   // rolling std dev of vertical gaze
   // Audio sub-scores — all 0-1
-  volume: number;
   volumeVariance: number;
   spectralBrightness: number;
   speechRate: number;
   voiceEnergy: number;
+  // Pitch tracking
+  pitch: number;             // fundamental frequency in Hz (0 when unvoiced)
+  pitchVariance: number;     // vocal expressiveness 0-1 (CV of pitch history)
 }
 
 export interface ParticipantMetrics {
@@ -70,10 +71,11 @@ export interface MetricDataPoint {
   eyeWideness?: number;
   lipTension?: number;
   gazeVariationX?: number;
-  gazeVariationY?: number;
   // Audio sub-scores
-  volume?: number;
   volumeVariance?: number;
   spectralBrightness?: number;
   speechRate?: number;
+  // Pitch tracking
+  pitch?: number;             // Hz (null → omitted when unvoiced)
+  pitchVariance?: number;     // 0-1
 }

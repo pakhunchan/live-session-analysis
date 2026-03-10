@@ -106,12 +106,12 @@ function buildEnergyBreakdown(
     eyeWideness: video?.eyeWideness ?? 0,
     lipTension: video?.lipTension ?? 0,
     gazeVariationX: video?.gazeVariationX ?? 0,
-    gazeVariationY: video?.gazeVariationY ?? 0,
-    volume: audio?.volume ?? 0,
     volumeVariance: audio?.volumeVariance ?? 0,
     spectralBrightness: audio?.spectralBrightness ?? 0,
     speechRate: audio?.speechRate ?? 0,
     voiceEnergy: audio?.voiceEnergy ?? 0,
+    pitch: audio?.pitch ?? 0,
+    pitchVariance: audio?.pitchVariance ?? 0,
   };
 }
 
