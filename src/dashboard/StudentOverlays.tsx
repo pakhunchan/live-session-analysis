@@ -1,5 +1,6 @@
 import React from 'react';
 import { engagementScore } from '../core/engagement';
+import Tooltip from './Tooltip';
 import type { ParticipantMetrics } from '../types';
 
 interface StudentOverlaysProps {
@@ -35,11 +36,15 @@ export default function StudentOverlays({ metrics }: StudentOverlaysProps) {
       }} />
 
       {/* Engagement pill — bottom-left */}
-      <div style={{
-        ...styles.engagementPill,
-        background: borderColor,
-      }}>
-        Eng {engPct}%
+      <div style={styles.engagementPillWrapper}>
+        <Tooltip text="Engagement Score — Blend of eye contact and energy signals">
+          <div style={{
+            ...styles.engagementPill,
+            background: borderColor,
+          }}>
+            Eng {engPct}%
+          </div>
+        </Tooltip>
       </div>
 
       {/* Status icon — top-right */}
@@ -61,16 +66,18 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 1,
     transition: 'box-shadow 0.5s',
   },
-  engagementPill: {
+  engagementPillWrapper: {
     position: 'absolute',
     bottom: 12,
     left: 12,
+    zIndex: 3,
+  },
+  engagementPill: {
     padding: '3px 10px',
     borderRadius: '12px',
     color: '#fff',
     fontSize: '0.75rem',
     fontWeight: 700,
-    zIndex: 3,
     fontVariantNumeric: 'tabular-nums',
   },
   statusIcon: {

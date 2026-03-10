@@ -1,5 +1,6 @@
 import React from 'react';
 import { engagementScore } from '../core/engagement';
+import Tooltip from './Tooltip';
 import type { ParticipantMetrics } from '../types';
 
 interface PersistentMetricsProps {
@@ -12,15 +13,19 @@ export default function PersistentMetrics({ student }: PersistentMetricsProps) {
 
   return (
     <div style={styles.bar}>
-      <div style={styles.metric}>
-        <span style={styles.label}>Engagement</span>
-        <span style={styles.value}>{engagement}%</span>
-      </div>
+      <Tooltip text="Engagement — Blend of eye contact and energy signals" position="below" align="right">
+        <div style={styles.metric}>
+          <span style={styles.label}>Engagement</span>
+          <span style={styles.value}>{engagement}%</span>
+        </div>
+      </Tooltip>
       <div style={styles.divider} />
-      <div style={styles.metric}>
-        <span style={styles.label}>Student Talk</span>
-        <span style={styles.value}>{talk}%</span>
-      </div>
+      <Tooltip text="Student Talk — Percentage of session time the student has spoken" position="below" align="right">
+        <div style={styles.metric}>
+          <span style={styles.label}>Student Talk</span>
+          <span style={styles.value}>{talk}%</span>
+        </div>
+      </Tooltip>
     </div>
   );
 }
