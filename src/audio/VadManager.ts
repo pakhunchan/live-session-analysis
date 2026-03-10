@@ -43,7 +43,9 @@ export class VadManager {
     this.vads[role] = vad;
   }
 
-  isSpeaking(role: ParticipantRole): boolean {
+  /** Returns speaking state, or undefined if VAD not yet initialized for this role */
+  isSpeaking(role: ParticipantRole): boolean | undefined {
+    if (!this.vads[role]) return undefined;
     return this.speakingState[role];
   }
 

@@ -35,10 +35,10 @@ describe('VadManager', () => {
     onSpeechEndCb = null;
   });
 
-  it('initial state is not speaking', () => {
+  it('initial state is undefined (VAD not yet initialized)', () => {
     const vm = new VadManager();
-    expect(vm.isSpeaking('tutor')).toBe(false);
-    expect(vm.isSpeaking('student')).toBe(false);
+    expect(vm.isSpeaking('tutor')).toBeUndefined();
+    expect(vm.isSpeaking('student')).toBeUndefined();
   });
 
   it('starts VAD for a participant', async () => {
@@ -58,8 +58,8 @@ describe('VadManager', () => {
     onSpeechStartCb?.();
     expect(vm.isSpeaking('tutor')).toBe(true);
 
-    // Other participant unaffected
-    expect(vm.isSpeaking('student')).toBe(false);
+    // Other participant unaffected — not initialized, so undefined
+    expect(vm.isSpeaking('student')).toBeUndefined();
   });
 
   it('speech end callback clears speaking state', async () => {
@@ -81,7 +81,8 @@ describe('VadManager', () => {
     await vm.destroy();
 
     expect(mockDestroy).toHaveBeenCalledTimes(2);
-    expect(vm.isSpeaking('tutor')).toBe(false);
-    expect(vm.isSpeaking('student')).toBe(false);
+    // After destroy, VADs are removed — returns undefined
+    expect(vm.isSpeaking('tutor')).toBeUndefined();
+    expect(vm.isSpeaking('student')).toBeUndefined();
   });
 });

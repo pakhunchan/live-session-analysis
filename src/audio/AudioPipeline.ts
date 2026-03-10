@@ -5,6 +5,7 @@ import { computeRMS, computeSpectralCentroid, computeVoiceEnergy } from './voice
 import { estimateSpeechRate } from './speechRate';
 import { PitchTracker } from './pitchTracker';
 import type { VadManager } from './VadManager';
+import { VoiceActivityDetector } from './vad';
 import { TalkTimeAccumulator } from './talkTime';
 import { InterruptionDetector } from './interruptionDetector';
 
@@ -23,6 +24,12 @@ export class AudioPipeline {
   private config: AudioPipelineConfig;
 
   private vadManager: VadManager | null = null;
+
+  // Fallback threshold-based VAD — used when VadManager (vad-web) isn't active
+  private fallbackVads: Record<ParticipantRole, VoiceActivityDetector> = {
+    tutor: new VoiceActivityDetector(),
+    student: new VoiceActivityDetector(),
+  };
 
   private pitchTrackers: Record<ParticipantRole, PitchTracker> = {
     tutor: new PitchTracker(),
@@ -60,8 +67,9 @@ export class AudioPipeline {
       history.shift();
     }
 
-    // VAD — read from VadManager (ML-based, runs independently)
-    const isSpeaking = this.vadManager?.isSpeaking(participant) ?? false;
+    // VAD — prefer VadManager (ML-based), fall back to threshold VAD
+    const isSpeaking = this.vadManager?.isSpeaking(participant)
+      ?? this.fallbackVads[participant].update(rms, chunk.frequencyData, sampleRate);
 
     // Speech rate
     const speechRate = estimateSpeechRate(history, this.config.sampleRateHz);
@@ -81,9 +89,11 @@ export class AudioPipeline {
     // Voice energy (no raw volume — gain-dependent and unreliable)
     const voiceEnergy = computeVoiceEnergy(volumeVariance, spectralBrightness, speechRate);
 
-    // Talk time & interruption tracking
-    const tutorSpeaking = this.vadManager?.isSpeaking('tutor') ?? false;
-    const studentSpeaking = this.vadManager?.isSpeaking('student') ?? false;
+    // Talk time & interruption tracking — use same VAD fallback logic
+    const tutorSpeaking = this.vadManager?.isSpeaking('tutor')
+      ?? this.fallbackVads.tutor.isSpeaking();
+    const studentSpeaking = this.vadManager?.isSpeaking('student')
+      ?? this.fallbackVads.student.isSpeaking();
     this.talkTime.update(tutorSpeaking, studentSpeaking, timestamp);
     this.interruptionDetector.update(tutorSpeaking, studentSpeaking, timestamp);
 
