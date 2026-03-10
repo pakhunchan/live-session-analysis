@@ -29,6 +29,7 @@ export class PitchTracker {
   private history: number[] = [];
   private lastValidPitch: number | null = null;
   private framesSinceValid = 0;
+  private smoothedVariance = 0;
 
   constructor(config: Partial<PitchTrackerConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -52,9 +53,10 @@ export class PitchTracker {
     const rms = computeQuickRMS(timeDomainData);
     if (rms < this.config.silenceRmsThreshold) {
       this.framesSinceValid++;
+      this.decayVariance();
       return {
         pitch: this.getHeldPitch(),
-        pitchVariance: this.computeVariance(),
+        pitchVariance: this.smoothedVariance,
       };
     }
 
@@ -73,13 +75,17 @@ export class PitchTracker {
       }
       this.lastValidPitch = pitch;
       this.framesSinceValid = 0;
+      // Use raw variance directly — the short window (20 samples) already
+      // makes it responsive. No EMA needed.
+      this.smoothedVariance = this.computeVariance();
     } else {
       this.framesSinceValid++;
+      this.decayVariance();
     }
 
     return {
       pitch: pitch ?? this.getHeldPitch(),
-      pitchVariance: this.computeVariance(),
+      pitchVariance: this.smoothedVariance,
     };
   }
 
@@ -111,10 +117,17 @@ export class PitchTracker {
     return Math.min(1, cv / 0.5);
   }
 
+  /** Decay smoothed variance toward 0 during silence / no-pitch frames */
+  private decayVariance(): void {
+    this.smoothedVariance *= 0.95;  // ~1s half-life at 20Hz
+    if (this.smoothedVariance < 0.01) this.smoothedVariance = 0;
+  }
+
   reset(): void {
     this.history = [];
     this.lastValidPitch = null;
     this.framesSinceValid = 0;
+    this.smoothedVariance = 0;
   }
 }
 
