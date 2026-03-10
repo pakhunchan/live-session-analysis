@@ -174,16 +174,16 @@ export default function FaceMeshCanvas({ videoRef }: FaceMeshCanvasProps) {
           const lm = result.faceLandmarks[0];
 
           function draw(conns: [number, number][], color: string, width: number) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = width;
-            ctx.beginPath();
+            ctx!.strokeStyle = color;
+            ctx!.lineWidth = width;
+            ctx!.beginPath();
             for (const [a, b] of conns) {
               if (a < lm.length && b < lm.length) {
-                ctx.moveTo(lm[a].x * w, lm[a].y * h);
-                ctx.lineTo(lm[b].x * w, lm[b].y * h);
+                ctx!.moveTo(lm[a].x * w, lm[a].y * h);
+                ctx!.lineTo(lm[b].x * w, lm[b].y * h);
               }
             }
-            ctx.stroke();
+            ctx!.stroke();
           }
 
           // Eye boxes (blue) — gaze ratio bounding regions

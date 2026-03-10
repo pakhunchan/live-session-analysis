@@ -14,7 +14,7 @@ export class MockFaceDetector implements IFaceDetector {
     this.result = result;
   }
 
-  async detect(): Promise<FaceDetectionResult | null> {
+  async detect(_image: HTMLVideoElement | ImageBitmap): Promise<FaceDetectionResult | null> {
     return this.result;
   }
 

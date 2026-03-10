@@ -43,8 +43,8 @@ export class FileInputAdapter implements InputAdapter {
     await this.videoElement.play();
 
     // captureStream gives us a MediaStream from the video element
-    if (typeof this.videoElement.captureStream === 'function') {
-      this.stream = this.videoElement.captureStream();
+    if (typeof (this.videoElement as any).captureStream === 'function') {
+      this.stream = (this.videoElement as any).captureStream();
     }
 
     this.ready = true;
