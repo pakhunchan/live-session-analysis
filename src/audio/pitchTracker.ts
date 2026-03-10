@@ -92,12 +92,18 @@ export class PitchTracker {
   }
 
   private computeVariance(): number {
-    if (this.history.length < 2) return 0;
+    // Use only the most recent ~1s (20 samples) for responsive variance
+    const VARIANCE_WINDOW = 20;
+    const recent = this.history.length > VARIANCE_WINDOW
+      ? this.history.slice(-VARIANCE_WINDOW)
+      : this.history;
 
-    const mean = this.history.reduce((a, b) => a + b, 0) / this.history.length;
+    if (recent.length < 2) return 0;
+
+    const mean = recent.reduce((a, b) => a + b, 0) / recent.length;
     if (mean < 1) return 0;
 
-    const variance = this.history.reduce((sum, v) => sum + (v - mean) ** 2, 0) / this.history.length;
+    const variance = recent.reduce((sum, v) => sum + (v - mean) ** 2, 0) / recent.length;
     const std = Math.sqrt(variance);
     const cv = std / mean;  // coefficient of variation
 
