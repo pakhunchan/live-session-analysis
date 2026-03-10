@@ -1,72 +1,85 @@
+import Meyda from 'meyda';
+
+/**
+ * Ensure the buffer length is a power of two (required by meyda).
+ * Pads with zeros or trims to the nearest power of two.
+ */
+function ensurePowerOfTwo(data: Float32Array): Float32Array {
+  const len = data.length;
+  if (len === 0) return data;
+
+  // Check if already power of two
+  if ((len & (len - 1)) === 0) return data;
+
+  // Find next power of two
+  const nextPow2 = Math.pow(2, Math.ceil(Math.log2(len)));
+  const result = new Float32Array(nextPow2);
+  result.set(data);
+  return result;
+}
+
 /**
  * Compute RMS (root mean square) amplitude from time domain data.
+ * Uses meyda for standardized extraction.
  */
 export function computeRMS(timeDomainData: Float32Array): number {
   if (timeDomainData.length === 0) return 0;
 
-  let sumSquares = 0;
-  for (let i = 0; i < timeDomainData.length; i++) {
-    sumSquares += timeDomainData[i] * timeDomainData[i];
-  }
-  return Math.sqrt(sumSquares / timeDomainData.length);
+  const signal = ensurePowerOfTwo(timeDomainData);
+  const features = Meyda.extract(['rms'], signal);
+  if (!features || features.rms == null) return 0;
+
+  return features.rms as number;
 }
 
 /**
- * Compute spectral centroid (brightness) from frequency data.
- * Higher centroid = brighter/more energetic voice.
+ * Compute spectral centroid (brightness) from time domain data.
+ * Returns raw Hz value (not normalized).
+ *
+ * Note: Signature changed from (frequencyData, sampleRate) to (timeDomainData, sampleRate)
+ * because meyda performs its own FFT internally.
  */
 export function computeSpectralCentroid(
-  frequencyData: Float32Array,
+  timeDomainData: Float32Array,
   sampleRate: number,
 ): number {
-  if (frequencyData.length === 0 || sampleRate === 0) return 0;
+  if (timeDomainData.length === 0 || sampleRate === 0) return 0;
 
-  // Convert from dB to linear power
-  let weightedSum = 0;
-  let totalPower = 0;
-  const binWidth = sampleRate / (frequencyData.length * 2);
+  const signal = ensurePowerOfTwo(timeDomainData);
+  const bufferSize = signal.length;
 
-  for (let i = 0; i < frequencyData.length; i++) {
-    // frequencyData is in dB, convert to linear
-    const power = Math.pow(10, frequencyData[i] / 20);
-    const freq = i * binWidth;
-    weightedSum += freq * power;
-    totalPower += power;
-  }
+  const features = Meyda.extract(['spectralCentroid'], signal);
+  if (!features || features.spectralCentroid == null) return 0;
 
-  if (totalPower < 1e-10) return 0;
+  // Meyda returns a bin index; convert to Hz
+  const binIndex = features.spectralCentroid as number;
+  const centroidHz = binIndex * sampleRate / bufferSize;
 
-  const centroid = weightedSum / totalPower;
-  // Normalize to 0-1 range (assume max useful frequency ~8000 Hz)
-  return Math.min(1, centroid / 8000);
+  return centroidHz;
 }
 
 export interface VoiceEnergyWeights {
-  volume: number;
   variance: number;
   brightness: number;
   speechRate: number;
 }
 
 const DEFAULT_WEIGHTS: VoiceEnergyWeights = {
-  volume: 0.30,
-  variance: 0.25,
-  brightness: 0.20,
-  speechRate: 0.25,
+  variance: 0.35,
+  brightness: 0.30,
+  speechRate: 0.35,
 };
 
 /**
  * Compute composite voice energy score from audio features.
  */
 export function computeVoiceEnergy(
-  volumeLevel: number,
   volumeVariance: number,
   spectralBrightness: number,
   speechRate: number,
   weights: VoiceEnergyWeights = DEFAULT_WEIGHTS,
 ): number {
   const score =
-    volumeLevel * weights.volume +
     volumeVariance * weights.variance +
     spectralBrightness * weights.brightness +
     speechRate * weights.speechRate;

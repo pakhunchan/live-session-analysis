@@ -3,7 +3,8 @@ import type { AudioChunkData, MetricDataPoint, ParticipantRole } from '../types'
 import { EventType } from '../types';
 import { computeRMS, computeSpectralCentroid, computeVoiceEnergy } from './voiceEnergy';
 import { estimateSpeechRate } from './speechRate';
-import { VoiceActivityDetector } from './vad';
+import { PitchTracker } from './pitchTracker';
+import type { VadManager } from './VadManager';
 import { TalkTimeAccumulator } from './talkTime';
 import { InterruptionDetector } from './interruptionDetector';
 
@@ -21,9 +22,11 @@ export class AudioPipeline {
   private eventBus: EventBus;
   private config: AudioPipelineConfig;
 
-  private vads: Record<ParticipantRole, VoiceActivityDetector> = {
-    tutor: new VoiceActivityDetector(),
-    student: new VoiceActivityDetector(),
+  private vadManager: VadManager | null = null;
+
+  private pitchTrackers: Record<ParticipantRole, PitchTracker> = {
+    tutor: new PitchTracker(),
+    student: new PitchTracker(),
   };
 
   private rmsHistory: Record<ParticipantRole, number[]> = {
@@ -39,12 +42,16 @@ export class AudioPipeline {
     this.config = { ...DEFAULT_CONFIG, ...config };
   }
 
+  setVadManager(vm: VadManager): void {
+    this.vadManager = vm;
+  }
+
   processChunk(chunk: AudioChunkData): void {
-    const { participant, timeDomainData, frequencyData, sampleRate, timestamp } = chunk;
+    const { participant, timeDomainData, sampleRate, timestamp } = chunk;
 
     // Compute features
     const rms = computeRMS(timeDomainData);
-    const spectralCentroid = computeSpectralCentroid(frequencyData, sampleRate);
+    const centroidHz = computeSpectralCentroid(timeDomainData, sampleRate);
 
     // Update RMS history
     const history = this.rmsHistory[participant];
@@ -53,11 +60,14 @@ export class AudioPipeline {
       history.shift();
     }
 
-    // VAD
-    const isSpeaking = this.vads[participant].update(rms, frequencyData, sampleRate);
+    // VAD — read from VadManager (ML-based, runs independently)
+    const isSpeaking = this.vadManager?.isSpeaking(participant) ?? false;
 
     // Speech rate
     const speechRate = estimateSpeechRate(history, this.config.sampleRateHz);
+
+    // Pitch tracking
+    const { pitch, pitchVariance } = this.pitchTrackers[participant].update(timeDomainData, sampleRate);
 
     // Volume variance from history
     const mean = history.reduce((a, b) => a + b, 0) / history.length;
@@ -65,20 +75,17 @@ export class AudioPipeline {
       history.reduce((sum, v) => sum + (v - mean) ** 2, 0) / history.length * 100
     );
 
-    // Normalized volume (0-1, assuming typical speech RMS ~0.01-0.3)
-    const volumeLevel = Math.min(1, rms / 0.3);
+    // Spectral brightness: normalize centroid Hz to 0-1
+    const spectralBrightness = Math.min(1, centroidHz / 4000);
 
-    // Voice energy
-    const voiceEnergy = computeVoiceEnergy(volumeLevel, volumeVariance, spectralCentroid, speechRate);
+    // Voice energy (no raw volume — gain-dependent and unreliable)
+    const voiceEnergy = computeVoiceEnergy(volumeVariance, spectralBrightness, speechRate);
 
     // Talk time & interruption tracking
-    const tutorSpeaking = this.vads.tutor.isSpeaking();
-    const studentSpeaking = this.vads.student.isSpeaking();
+    const tutorSpeaking = this.vadManager?.isSpeaking('tutor') ?? false;
+    const studentSpeaking = this.vadManager?.isSpeaking('student') ?? false;
     this.talkTime.update(tutorSpeaking, studentSpeaking, timestamp);
     this.interruptionDetector.update(tutorSpeaking, studentSpeaking, timestamp);
-
-    // Normalized spectral brightness (0-1, centroid typically 500-4000 Hz)
-    const spectralBrightness = Math.min(1, spectralCentroid / 4000);
 
     // Emit
     const dp: MetricDataPoint = {
@@ -88,10 +95,11 @@ export class AudioPipeline {
       isSpeaking,
       voiceEnergy,
       amplitude: rms,
-      volume: volumeLevel,
       volumeVariance,
       spectralBrightness,
       speechRate,
+      pitch: pitch ?? undefined,
+      pitchVariance,
     };
 
     this.eventBus.emit(EventType.AUDIO_METRICS, dp);
