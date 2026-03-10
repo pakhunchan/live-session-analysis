@@ -68,9 +68,9 @@ function EnergyDebug({ breakdown: b }: { breakdown: EnergyBreakdown }) {
         </div>
         <div style={styles.debugCol}>
           <div style={styles.debugColTitle}>Audio (80%)</div>
-          <DebugRow label="Variance" value={b.volumeVariance} />
+          <DebugRow label="VolVar" value={b.volumeVariance} />
           <DebugRow label="Bright" value={b.spectralBrightness} />
-          <DebugRow label="Rate" value={b.speechRate} />
+          <DebugRow label="SpeechRate" value={b.speechRate} />
           <DebugRow label="Pitch" value={Math.min(1, b.pitch / 500)} />
           <DebugRow label="PitchVar" value={b.pitchVariance} />
           <div style={styles.debugSubtotal}>Voice: {pct(b.voiceEnergy)}</div>
