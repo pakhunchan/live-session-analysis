@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { useMetricsEngine } from './hooks/useMetricsEngine';
 import VideoPreview from './VideoPreview';
+import PersistentMetrics from './PersistentMetrics';
+import StudentOverlays from './StudentOverlays';
 import SessionSetup from './SessionSetup';
 import Sidebar from './Sidebar';
 import AmbientBar from '../coaching/AmbientBar';
@@ -85,6 +87,8 @@ export default function Dashboard() {
                 label="Student"
                 showMesh={showMesh}
               />
+              <StudentOverlays metrics={snapshot?.student ?? null} />
+              <PersistentMetrics student={snapshot?.student ?? null} />
               <div style={styles.tutorOverlay}>
                 <VideoPreview
                   stream={tutorStream}
