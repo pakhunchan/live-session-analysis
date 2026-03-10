@@ -68,8 +68,9 @@ export class AudioPipeline {
     }
 
     // VAD — prefer VadManager (ML-based), fall back to threshold VAD
-    const isSpeaking = this.vadManager?.isSpeaking(participant)
-      ?? this.fallbackVads[participant].update(rms, chunk.frequencyData, sampleRate);
+    // Always update fallback so it stays warm even when VadManager is active
+    const fallbackResult = this.fallbackVads[participant].update(rms, chunk.frequencyData, sampleRate);
+    const isSpeaking = this.vadManager?.isSpeaking(participant) ?? fallbackResult;
 
     // Speech rate
     const speechRate = estimateSpeechRate(history, this.config.sampleRateHz);

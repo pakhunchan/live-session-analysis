@@ -10,8 +10,8 @@ const DEFAULT_VAD_CONFIG: VADConfig = {
   silenceThreshold: 0.01,
   minSpeechFreqHz: 85,
   maxSpeechFreqHz: 3000,
-  onsetFrames: 3,
-  offsetFrames: 6,
+  onsetFrames: 2,
+  offsetFrames: 15,  // 750ms at 20Hz — holds through natural inter-word pauses
 };
 
 /**
