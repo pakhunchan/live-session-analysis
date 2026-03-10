@@ -7,8 +7,8 @@ interface SessionSetupProps {
 }
 
 export default function SessionSetup({ onStart, isLoading }: SessionSetupProps) {
-  const [tutorSource, setTutorSource] = useState<InputSourceType>('file');
-  const [studentSource, setStudentSource] = useState<InputSourceType>('webcam');
+  const [tutorSource, setTutorSource] = useState<InputSourceType>('webcam');
+  const [studentSource, setStudentSource] = useState<InputSourceType>('file');
   const [tutorFile, setTutorFile] = useState<File | null>(null);
   const [studentFile, setStudentFile] = useState<File | null>(null);
   const [playAudio, setPlayAudio] = useState(true);
