@@ -5,7 +5,7 @@ import PersistentMetrics from './PersistentMetrics';
 import StudentOverlays from './StudentOverlays';
 import SessionSetup from './SessionSetup';
 import Sidebar from './Sidebar';
-import AmbientBar from '../coaching/AmbientBar';
+import NudgeChips from './NudgeChips';
 import { SessionOrchestrator } from '../core/SessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
 import type { SessionSetupConfig } from '../types/session';
@@ -79,9 +79,8 @@ export default function Dashboard() {
       {isRunning && (
         <div style={styles.sessionLayout}>
           <div style={styles.mainArea}>
-            <AmbientBar bus={eventBus} />
-
             <div style={styles.videoStage}>
+              <NudgeChips bus={eventBus} />
               <VideoPreview
                 stream={studentStream}
                 label="Student"
