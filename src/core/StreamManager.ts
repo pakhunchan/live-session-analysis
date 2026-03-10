@@ -70,18 +70,36 @@ export class StreamManager {
 
     if (this.audioContextFactory) {
       ps.audioContext = this.audioContextFactory(stream);
-    } else if (typeof AudioContext !== 'undefined') {
-      ps.audioContext = new AudioContext() as unknown as IAudioContext;
-    } else {
-      return; // No AudioContext available
+      const analyser = ps.audioContext.createAnalyser();
+      analyser.fftSize = this.config.fftSize;
+      ps.analyser = analyser;
+      const source = ps.audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      return;
     }
 
-    const analyser = ps.audioContext.createAnalyser();
-    analyser.fftSize = this.config.fftSize;
-    ps.analyser = analyser;
+    if (typeof AudioContext === 'undefined') return;
 
-    const source = ps.audioContext.createMediaStreamSource(stream);
-    source.connect(analyser);
+    const ctx = new AudioContext();
+    ps.audioContext = ctx as unknown as IAudioContext;
+
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = this.config.fftSize;
+    ps.analyser = analyser as unknown as IAudioAnalyserNode;
+
+    // Bandpass filter: pass 85-3000 Hz speech band, reject ambient noise
+    const highpass = ctx.createBiquadFilter();
+    highpass.type = 'highpass';
+    highpass.frequency.value = 85;
+
+    const lowpass = ctx.createBiquadFilter();
+    lowpass.type = 'lowpass';
+    lowpass.frequency.value = 3000;
+
+    const source = ctx.createMediaStreamSource(stream);
+    source.connect(highpass);
+    highpass.connect(lowpass);
+    lowpass.connect(analyser);
   }
 
   onFrame(cb: FrameCallback): void {
