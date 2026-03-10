@@ -112,26 +112,28 @@ export class VideoPipeline {
     }
 
     // Update gaze history (for gaze variation — eye wandering detection)
+    // Gate: skip when eyes are partially or fully closed — iris landmarks are unreliable
     const gazeHist = this.gazeHistory[frame.participant];
-    gazeHist.push({ x: gaze.horizontalRatio, y: gaze.verticalRatio });
-    if (gazeHist.length > VideoPipeline.GAZE_HISTORY_SIZE) {
-      gazeHist.shift();
+    if (features.eyeOpenness > 0.6) {
+      gazeHist.push({ x: gaze.horizontalRatio, y: gaze.verticalRatio });
+      if (gazeHist.length > VideoPipeline.GAZE_HISTORY_SIZE) {
+        gazeHist.shift();
+      }
     }
 
     // Gaze variation: EMA of frame-to-frame gaze deltas.
     // Responds instantly when eyes start moving, decays within ~1s when steady.
+    // Clamp per-frame deltas to reject residual blink artifacts that slip through.
+    const MAX_GAZE_DELTA = 0.15;
     let gazeVariationX = 0;
-    let gazeVariationY = 0;
     if (gazeHist.length >= 2) {
       const decay = 0.2;
       let emaX = 0;
-      let emaY = 0;
       for (let i = 1; i < gazeHist.length; i++) {
-        emaX = decay * emaX + (1 - decay) * Math.abs(gazeHist[i].x - gazeHist[i - 1].x);
-        emaY = decay * emaY + (1 - decay) * Math.abs(gazeHist[i].y - gazeHist[i - 1].y);
+        const dx = Math.abs(gazeHist[i].x - gazeHist[i - 1].x);
+        emaX = decay * emaX + (1 - decay) * Math.min(dx, MAX_GAZE_DELTA);
       }
       gazeVariationX = Math.min(1, emaX * 20);
-      gazeVariationY = Math.min(1, emaY * 20);
     }
 
     const exprResult = computeExpressionEnergy(features, history, undefined, pitchHist);
@@ -154,7 +156,6 @@ export class VideoPipeline {
       eyeWideness: exprResult.eyeWideness,
       lipTension: exprResult.lipTension,
       gazeVariationX,
-      gazeVariationY,
     };
 
     this.eventBus.emit(EventType.VIDEO_METRICS, dp);

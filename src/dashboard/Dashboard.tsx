@@ -37,7 +37,7 @@ export default function Dashboard() {
       setStatus('Loading MediaPipe model...');
       await detector.initialize();
 
-      start(detector);
+      await start(detector);
       setStatus('Running');
     } catch (err) {
       setError((err as Error).message);

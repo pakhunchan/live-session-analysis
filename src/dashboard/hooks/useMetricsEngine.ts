@@ -3,6 +3,7 @@ import { EventBus } from '../../core/EventBus';
 import { MetricsEngine } from '../../core/MetricsEngine';
 import { VideoPipeline } from '../../video/VideoPipeline';
 import { AudioPipeline } from '../../audio/AudioPipeline';
+import { VadManager } from '../../audio/VadManager';
 import { StreamManager } from '../../core/StreamManager';
 import { NudgeEngine } from '../../coaching/NudgeEngine';
 import type { IFaceDetector } from '../../video/FaceDetector';
@@ -13,7 +14,7 @@ export interface UseMetricsEngineReturn {
   snapshot: MetricSnapshot | null;
   history: MetricSnapshot[];
   isRunning: boolean;
-  start: (detector: IFaceDetector) => void;
+  start: (detector: IFaceDetector) => Promise<void>;
   stop: () => void;
   eventBus: EventBus;
   streamManager: StreamManager;
@@ -28,6 +29,7 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   const metricsEngineRef = useRef<MetricsEngine | null>(null);
   const videoPipelineRef = useRef<VideoPipeline | null>(null);
   const audioPipelineRef = useRef<AudioPipeline | null>(null);
+  const vadManagerRef = useRef<VadManager | null>(null);
   const streamManagerRef = useRef(new StreamManager({ videoFps: 2, audioSampleHz: 20 }));
   const nudgeEngineRef = useRef<NudgeEngine | null>(null);
 
@@ -68,7 +70,7 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     return unsub;
   }, []);
 
-  const start = useCallback((detector: IFaceDetector) => {
+  const start = useCallback(async (detector: IFaceDetector) => {
     const bus = eventBusRef.current;
     const sm = streamManagerRef.current;
 
@@ -76,10 +78,14 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     const me = new MetricsEngine({ sessionId, snapshotIntervalMs: 500 });
     const vp = new VideoPipeline(detector, bus);
     const ap = new AudioPipeline(bus);
+    const vadManager = new VadManager();
+
+    ap.setVadManager(vadManager);
 
     metricsEngineRef.current = me;
     videoPipelineRef.current = vp;
     audioPipelineRef.current = ap;
+    vadManagerRef.current = vadManager;
 
     // Wire StreamManager callbacks
     sm.onFrame(async (frame) => {
@@ -94,18 +100,36 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     nudgeEngineRef.current = ne;
     ne.start();
 
-    // Start everything
+    // Start core pipeline immediately (works without VAD)
     me.start((snap) => {
       bus.emit(EventType.METRIC_SNAPSHOT, snap);
     });
     sm.start();
     setIsRunning(true);
+
+    // Start VadManager in background — non-blocking so session works even if
+    // vad-web fails to load (ONNX/AudioWorklet issues)
+    const startVadForRole = async (role: 'tutor' | 'student') => {
+      const stream = sm.getStream(role);
+      if (stream) {
+        try {
+          await vadManager.startForParticipant(role, stream);
+        } catch (err) {
+          console.warn(`[VadManager] Failed to start VAD for ${role}:`, err);
+        }
+      }
+    };
+    Promise.all([startVadForRole('tutor'), startVadForRole('student')]).catch(() => {
+      // Silently degrade — AudioPipeline falls back to isSpeaking=false
+    });
   }, [sessionId]);
 
   const stop = useCallback(() => {
     nudgeEngineRef.current?.stop();
     metricsEngineRef.current?.stop();
     streamManagerRef.current.stop();
+    vadManagerRef.current?.destroy();
+    vadManagerRef.current = null;
     setIsRunning(false);
   }, []);
 

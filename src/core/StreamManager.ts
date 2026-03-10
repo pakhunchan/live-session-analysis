@@ -49,6 +49,10 @@ export class StreamManager {
     this.audioContextFactory = factory;
   }
 
+  getStream(participant: ParticipantRole): MediaStream | null {
+    return this.streams[participant].mediaStream;
+  }
+
   setStream(participant: ParticipantRole, stream: MediaStream): void {
     const ps = this.streams[participant];
     ps.mediaStream = stream;
@@ -148,9 +152,10 @@ export class StreamManager {
       const ps = this.streams[participant];
       if (!ps.analyser || !ps.audioContext) continue;
 
-      const bufferLength = ps.analyser.frequencyBinCount;
-      const timeDomainData = new Float32Array(bufferLength);
-      const frequencyData = new Float32Array(bufferLength);
+      // Time-domain: use full fftSize (2048) for pitch detection accuracy.
+      // Frequency-domain: frequencyBinCount (fftSize/2) is correct for FFT output.
+      const timeDomainData = new Float32Array(ps.analyser.fftSize);
+      const frequencyData = new Float32Array(ps.analyser.frequencyBinCount);
 
       ps.analyser.getFloatTimeDomainData(timeDomainData);
       ps.analyser.getFloatFrequencyData(frequencyData);
