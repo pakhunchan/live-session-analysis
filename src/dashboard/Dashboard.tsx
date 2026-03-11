@@ -6,13 +6,17 @@ import StudentOverlays from './StudentOverlays';
 import SessionSetup from './SessionSetup';
 import Sidebar from './Sidebar';
 import NudgeChips from './NudgeChips';
+import PostSessionSummary from './PostSessionSummary';
 import { SessionOrchestrator } from '../core/SessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
-import type { SessionSetupConfig, InputSourceType } from '../types/session';
+import { generateSessionSummary } from '../core/generateSessionSummary';
+import { fetchRecommendations, generateFallbackRecommendations } from '../core/openaiRecommendations';
+import type { SessionSetupConfig, InputSourceType, SessionSummary } from '../types/session';
 
 export default function Dashboard() {
-  const { snapshot, history, isRunning, start, stop, eventBus, streamManager } = useMetricsEngine();
+  const { snapshot, history, nudges, isRunning, start, stop, resetHistory, eventBus, streamManager } = useMetricsEngine();
   const [status, setStatus] = useState('Ready');
+  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tutorStream, setTutorStream] = useState<MediaStream | null>(null);
   const [studentStream, setStudentStream] = useState<MediaStream | null>(null);
@@ -75,12 +79,33 @@ export default function Dashboard() {
 
   const handleStop = useCallback(() => {
     stop();
+
+    // Generate summary from history before clearing streams
+    const partial = generateSessionSummary(history, nudges);
+    const summary: SessionSummary = { ...partial, recommendations: [] };
+    setSessionSummary(summary);
+
+    // Fetch recommendations async (non-blocking)
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
+    if (apiKey) {
+      fetchRecommendations(partial, apiKey)
+        .then(recs => setSessionSummary(prev => prev ? { ...prev, recommendations: recs } : null))
+        .catch(() => {
+          const fallback = generateFallbackRecommendations(partial);
+          setSessionSummary(prev => prev ? { ...prev, recommendations: fallback } : null);
+        });
+    } else {
+      // No API key — use rule-based fallback immediately
+      const fallback = generateFallbackRecommendations(partial);
+      setSessionSummary(prev => prev ? { ...prev, recommendations: fallback } : null);
+    }
+
     orchestratorRef.current?.dispose();
     orchestratorRef.current = null;
     setTutorStream(null);
     setStudentStream(null);
     setStatus('Stopped');
-  }, [stop]);
+  }, [stop, history, nudges]);
 
   return (
     <div style={styles.container}>
@@ -97,8 +122,19 @@ export default function Dashboard() {
 
       {error && <div style={styles.errorBanner}>{error}</div>}
 
-      {!isRunning && (
+      {!isRunning && !sessionSummary && (
         <SessionSetup onStart={handleSessionStart} isLoading={setupLoading} />
+      )}
+
+      {!isRunning && sessionSummary && (
+        <PostSessionSummary
+          summary={sessionSummary}
+          history={history}
+          onNewSession={() => {
+            setSessionSummary(null);
+            resetHistory();
+          }}
+        />
       )}
 
       {isRunning && (

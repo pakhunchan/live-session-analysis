@@ -7,15 +7,17 @@ import { VadManager } from '../../audio/VadManager';
 import { StreamManager } from '../../core/StreamManager';
 import { NudgeEngine } from '../../coaching/NudgeEngine';
 import type { IFaceDetector } from '../../video/FaceDetector';
-import type { MetricSnapshot, MetricDataPoint } from '../../types';
+import type { MetricSnapshot, MetricDataPoint, Nudge } from '../../types';
 import { EventType } from '../../types';
 
 export interface UseMetricsEngineReturn {
   snapshot: MetricSnapshot | null;
   history: MetricSnapshot[];
+  nudges: Nudge[];
   isRunning: boolean;
   start: (detector: IFaceDetector) => Promise<void>;
   stop: () => void;
+  resetHistory: () => void;
   eventBus: EventBus;
   streamManager: StreamManager;
 }
@@ -23,6 +25,7 @@ export interface UseMetricsEngineReturn {
 export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineReturn {
   const [snapshot, setSnapshot] = useState<MetricSnapshot | null>(null);
   const [history, setHistory] = useState<MetricSnapshot[]>([]);
+  const [nudges, setNudges] = useState<Nudge[]>([]);
   const [isRunning, setIsRunning] = useState(false);
 
   const eventBusRef = useRef(new EventBus());
@@ -33,15 +36,20 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   const streamManagerRef = useRef(new StreamManager({ videoFps: 2, audioSampleHz: 20 }));
   const nudgeEngineRef = useRef<NudgeEngine | null>(null);
 
-  // Subscribe to snapshots
+  // Subscribe to snapshots — full history kept for post-session summary
   useEffect(() => {
     const bus = eventBusRef.current;
     const unsub = bus.on<MetricSnapshot>(EventType.METRIC_SNAPSHOT, (event) => {
       setSnapshot(event.payload);
-      setHistory((prev) => {
-        const next = [...prev, event.payload];
-        return next.length > 360 ? next.slice(-360) : next; // 3 min at 2 Hz
-      });
+      setHistory((prev) => [...prev, event.payload]);
+    });
+    return unsub;
+  }, []);
+
+  // Collect nudges for post-session summary
+  useEffect(() => {
+    const unsub = eventBusRef.current.on<Nudge>(EventType.NUDGE, (event) => {
+      setNudges(prev => [...prev, event.payload]);
     });
     return unsub;
   }, []);
@@ -133,12 +141,20 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     setIsRunning(false);
   }, []);
 
+  const resetHistory = useCallback(() => {
+    setHistory([]);
+    setSnapshot(null);
+    setNudges([]);
+  }, []);
+
   return {
     snapshot,
     history,
+    nudges,
     isRunning,
     start,
     stop,
+    resetHistory,
     eventBus: eventBusRef.current,
     streamManager: streamManagerRef.current,
   };
