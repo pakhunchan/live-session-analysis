@@ -13,16 +13,18 @@ export default function PersistentMetrics({ student }: PersistentMetricsProps) {
 
   return (
     <div style={styles.bar}>
-      <Tooltip text="Engagement — Blend of eye contact and energy signals" position="below" align="right">
+      <span style={styles.studentLabel}>Student</span>
+      <div style={styles.divider} />
+      <Tooltip text="Engagement — Blend of eye contact and energy signals" position="below">
         <div style={styles.metric}>
-          <span style={styles.label}>Engagement</span>
+          <span style={styles.label}>Eng</span>
           <span style={styles.value}>{engagement}%</span>
         </div>
       </Tooltip>
       <div style={styles.divider} />
-      <Tooltip text="Student Talk — Percentage of session time the student has spoken" position="below" align="right">
+      <Tooltip text="Student Talk — Percentage of session time the student has spoken" position="below">
         <div style={styles.metric}>
-          <span style={styles.label}>Student Talk</span>
+          <span style={styles.label}>Talk</span>
           <span style={styles.value}>{talk}%</span>
         </div>
       </Tooltip>
@@ -33,16 +35,22 @@ export default function PersistentMetrics({ student }: PersistentMetricsProps) {
 const styles: Record<string, React.CSSProperties> = {
   bar: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: 8,
+    left: 8,
     display: 'flex',
     alignItems: 'center',
     gap: '10px',
     background: 'rgba(0, 0, 0, 0.6)',
     backdropFilter: 'blur(8px)',
-    padding: '6px 14px',
-    borderRadius: '8px',
+    padding: '5px 12px',
+    borderRadius: '6px',
     zIndex: 3,
+  },
+  studentLabel: {
+    fontSize: '0.75rem',
+    fontWeight: 600,
+    color: '#fff',
+    letterSpacing: '0.02em',
   },
   metric: {
     display: 'flex',

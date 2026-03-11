@@ -28,7 +28,7 @@ export default function VideoPreview({ stream, label, showMesh, mirrored }: Vide
         style={{ ...styles.video, ...(mirrored ? { transform: 'scaleX(-1)' } : {}) }}
       />
       {showMesh && <FaceMeshCanvas videoRef={videoRef} />}
-      <div style={styles.label}>{label}</div>
+      {label && <div style={styles.label}>{label}</div>}
     </div>
   );
 }
@@ -40,6 +40,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   video: {
     width: '100%',
+    height: '100%',
+    objectFit: 'contain',
     borderRadius: '8px',
     background: '#000',
     display: 'block',

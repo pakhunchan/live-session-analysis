@@ -32,7 +32,7 @@ export default function StudentOverlays({ metrics }: StudentOverlaysProps) {
       {/* Engagement border — inset glow around the whole video */}
       <div style={{
         ...styles.borderOverlay,
-        boxShadow: `inset 0 0 0 3px ${borderColor}`,
+        boxShadow: `inset 0 0 0 6px ${borderColor}`,
       }} />
 
       {/* Engagement pill — bottom-left */}

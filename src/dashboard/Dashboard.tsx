@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useMetricsEngine } from './hooks/useMetricsEngine';
 import VideoPreview from './VideoPreview';
 import PersistentMetrics from './PersistentMetrics';
@@ -8,7 +8,7 @@ import Sidebar from './Sidebar';
 import NudgeChips from './NudgeChips';
 import { SessionOrchestrator } from '../core/SessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
-import type { SessionSetupConfig } from '../types/session';
+import type { SessionSetupConfig, InputSourceType } from '../types/session';
 
 export default function Dashboard() {
   const { snapshot, history, isRunning, start, stop, eventBus, streamManager } = useMetricsEngine();
@@ -17,9 +17,33 @@ export default function Dashboard() {
   const [tutorStream, setTutorStream] = useState<MediaStream | null>(null);
   const [studentStream, setStudentStream] = useState<MediaStream | null>(null);
   const [showMesh, setShowMesh] = useState(false);
+  const [tutorSource, setTutorSource] = useState<InputSourceType>('webcam');
+  const [mirrorTutor, setMirrorTutor] = useState(true);
   const orchestratorRef = useRef<SessionOrchestrator | null>(null);
   const [setupLoading, setSetupLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [primaryView, setPrimaryView] = useState<'student' | 'tutor'>('student');
+  const videoStageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!videoStageRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      videoStageRef.current.requestFullscreen();
+    }
+  }, []);
+
+  const swapPrimaryView = useCallback(() => {
+    setPrimaryView(prev => prev === 'student' ? 'tutor' : 'student');
+  }, []);
 
   const handleSessionStart = useCallback(async (config: SessionSetupConfig) => {
     try {
@@ -31,6 +55,7 @@ export default function Dashboard() {
       orchestratorRef.current = orchestrator;
 
       const { streams } = await orchestrator.initialize(config, streamManager);
+      setTutorSource(config.tutor.source);
       setTutorStream(streams.tutor);
       setStudentStream(streams.student);
 
@@ -79,31 +104,82 @@ export default function Dashboard() {
       {isRunning && (
         <div style={styles.sessionLayout}>
           <div style={styles.mainArea}>
-            <div style={styles.videoStage}>
+            <div
+              ref={videoStageRef}
+              style={{
+                ...styles.videoStage,
+                ...(isFullscreen ? { borderRadius: 0, width: '100%', height: '100%' } : {}),
+              }}
+            >
               <NudgeChips bus={eventBus} />
+              {/* Main (big) video */}
               <VideoPreview
-                stream={studentStream}
-                label="Student"
+                stream={primaryView === 'student' ? studentStream : tutorStream}
+                label=""
                 showMesh={showMesh}
+                mirrored={primaryView === 'tutor' && tutorSource === 'webcam' && mirrorTutor}
               />
-              <StudentOverlays metrics={snapshot?.student ?? null} />
+              {primaryView === 'student' && <StudentOverlays metrics={snapshot?.student ?? null} />}
               <PersistentMetrics student={snapshot?.student ?? null} />
-              <div style={styles.tutorOverlay}>
+              {/* Mini overlay */}
+              <div style={styles.miniOverlay}>
                 <VideoPreview
-                  stream={tutorStream}
-                  label="You"
+                  stream={primaryView === 'student' ? tutorStream : studentStream}
+                  label={primaryView === 'student' ? 'You' : 'Student'}
                   showMesh={showMesh}
-                  mirrored
+                  mirrored={primaryView === 'student' && tutorSource === 'webcam' && mirrorTutor}
                 />
+                {primaryView === 'tutor' && <StudentOverlays metrics={snapshot?.student ?? null} />}
+                <button
+                  onClick={swapPrimaryView}
+                  style={styles.miniFullscreenBtn}
+                  title="Swap to main view"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="17 1 21 5 17 9" />
+                    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                    <polyline points="7 23 3 19 7 15" />
+                    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                  </svg>
+                </button>
               </div>
-              <label style={styles.meshToggle}>
-                <input
-                  type="checkbox"
-                  checked={showMesh}
-                  onChange={(e) => setShowMesh(e.target.checked)}
-                />
-                {' '}Show Mesh
-              </label>
+              <div style={styles.bottomLeftControls}>
+                <label style={styles.controlToggle}>
+                  <input
+                    type="checkbox"
+                    checked={showMesh}
+                    onChange={(e) => setShowMesh(e.target.checked)}
+                  />
+                  {' '}Show Mesh
+                </label>
+                {tutorSource === 'webcam' && (
+                  <label style={styles.controlToggle}>
+                    <input
+                      type="checkbox"
+                      checked={mirrorTutor}
+                      onChange={(e) => setMirrorTutor(e.target.checked)}
+                    />
+                    {' '}Mirror
+                  </label>
+                )}
+              </div>
+              <button onClick={toggleFullscreen} style={styles.fullscreenBtn} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
+                {isFullscreen ? (
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="4 14 10 14 10 20" />
+                    <polyline points="20 10 14 10 14 4" />
+                    <line x1="14" y1="10" x2="21" y2="3" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                ) : (
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
+                  </svg>
+                )}
+              </button>
             </div>
 
             <button onClick={handleStop} style={styles.stopBtn}>
@@ -182,7 +258,7 @@ const styles: Record<string, React.CSSProperties> = {
     overflow: 'hidden',
     background: '#000',
   },
-  tutorOverlay: {
+  miniOverlay: {
     position: 'absolute',
     bottom: 12,
     right: 12,
@@ -193,17 +269,49 @@ const styles: Record<string, React.CSSProperties> = {
     border: '2px solid rgba(255,255,255,0.3)',
     zIndex: 2,
   },
-  meshToggle: {
+  bottomLeftControls: {
     position: 'absolute',
     bottom: 12,
     left: 12,
+    display: 'flex',
+    gap: '6px',
+    zIndex: 2,
+  },
+  controlToggle: {
     fontSize: '0.75rem',
     color: '#fff',
     cursor: 'pointer',
     background: 'rgba(0,0,0,0.5)',
     padding: '4px 8px',
     borderRadius: '4px',
-    zIndex: 2,
+  },
+  fullscreenBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    background: 'rgba(0,0,0,0.5)',
+    border: 'none',
+    borderRadius: '6px',
+    padding: '10px 12px',
+    cursor: 'pointer',
+    zIndex: 3,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniFullscreenBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    background: 'rgba(0,0,0,0.5)',
+    border: 'none',
+    borderRadius: '4px',
+    padding: '3px 4px',
+    cursor: 'pointer',
+    zIndex: 3,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stopBtn: {
     display: 'block',
