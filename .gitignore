@@ -23,6 +23,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Eval results
+evals/results.jsonl
+
 # Logs
 *.log
 npm-debug.log*

@@ -85,20 +85,13 @@ export default function Dashboard() {
     const summary: SessionSummary = { ...partial, recommendations: [] };
     setSessionSummary(summary);
 
-    // Fetch recommendations async (non-blocking)
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY as string | undefined;
-    if (apiKey) {
-      fetchRecommendations(partial, apiKey)
-        .then(recs => setSessionSummary(prev => prev ? { ...prev, recommendations: recs } : null))
-        .catch(() => {
-          const fallback = generateFallbackRecommendations(partial);
-          setSessionSummary(prev => prev ? { ...prev, recommendations: fallback } : null);
-        });
-    } else {
-      // No API key — use rule-based fallback immediately
-      const fallback = generateFallbackRecommendations(partial);
-      setSessionSummary(prev => prev ? { ...prev, recommendations: fallback } : null);
-    }
+    // Fetch recommendations via server proxy (non-blocking)
+    fetchRecommendations(partial)
+      .then(recs => setSessionSummary(prev => prev ? { ...prev, recommendations: recs } : null))
+      .catch(() => {
+        const fallback = generateFallbackRecommendations(partial);
+        setSessionSummary(prev => prev ? { ...prev, recommendations: fallback } : null);
+      });
 
     orchestratorRef.current?.dispose();
     orchestratorRef.current = null;

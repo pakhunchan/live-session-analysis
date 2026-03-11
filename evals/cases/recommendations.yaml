@@ -1,0 +1,175 @@
+- id: high_tutor_talk
+  category: talk_balance
+  description: Tutor speaks 85% of the session
+  input:
+    sessionId: eval-talk-01
+    durationMs: 1800000
+    avgMetrics:
+      tutor: { eyeContactScore: 0.7, energyScore: 0.6 }
+      student: { eyeContactScore: 0.5, energyScore: 0.4 }
+    totalInterruptions: 2
+    talkTimeRatio: { tutor: 0.85, student: 0.15 }
+    engagementScore: 42
+    keyMoments: []
+    nudgesTriggered:
+      - { type: tutor_talk_dominant }
+  assertions:
+    min_recommendations: 3
+    max_recommendations: 5
+    is_valid_json_array: true
+    must_mention_any: [question, participation, student speak, listen, dialogue]
+
+- id: strong_session
+  category: positive
+  description: High engagement, balanced talk time, good metrics
+  input:
+    sessionId: eval-positive-01
+    durationMs: 2700000
+    avgMetrics:
+      tutor: { eyeContactScore: 0.85, energyScore: 0.7 }
+      student: { eyeContactScore: 0.8, energyScore: 0.65 }
+    totalInterruptions: 1
+    talkTimeRatio: { tutor: 0.55, student: 0.45 }
+    engagementScore: 82
+    keyMoments:
+      - { timestamp: 1000, type: engagement_spike, description: "Student showed high interest", metrics: {} }
+    nudgesTriggered: []
+  assertions:
+    min_recommendations: 3
+    max_recommendations: 5
+    is_valid_json_array: true
+
+- id: low_student_attention
+  category: attention
+  description: Low eye contact and energy from student
+  input:
+    sessionId: eval-attn-01
+    durationMs: 2400000
+    avgMetrics:
+      tutor: { eyeContactScore: 0.75, energyScore: 0.6 }
+      student: { eyeContactScore: 0.2, energyScore: 0.25 }
+    totalInterruptions: 0
+    talkTimeRatio: { tutor: 0.65, student: 0.35 }
+    engagementScore: 30
+    keyMoments:
+      - { timestamp: 1000, type: attention_drop, description: "Student looked away for extended period", metrics: {} }
+      - { timestamp: 60000, type: attention_drop, description: "Student disengaged again", metrics: {} }
+    nudgesTriggered:
+      - { type: low_eye_contact }
+  assertions:
+    min_recommendations: 3
+    max_recommendations: 5
+    is_valid_json_array: true
+    must_mention_any: [attention, engage, eye contact, focus, visual, interact]
+
+- id: many_interruptions
+  category: interruptions
+  description: Tutor interrupts student 12 times
+  input:
+    sessionId: eval-intr-01
+    durationMs: 2100000
+    avgMetrics:
+      tutor: { eyeContactScore: 0.6, energyScore: 0.7 }
+      student: { eyeContactScore: 0.5, energyScore: 0.35 }
+    totalInterruptions: 12
+    talkTimeRatio: { tutor: 0.72, student: 0.28 }
+    engagementScore: 38
+    keyMoments:
+      - { timestamp: 1000, type: interruption_burst, description: "Multiple interruptions in short span", metrics: {} }
+    nudgesTriggered:
+      - { type: interruption_spike }
+  assertions:
+    min_recommendations: 3
+    max_recommendations: 5
+    is_valid_json_array: true
+    must_mention_any: [pause, listen, interrupt, wait, space, patient]
+
+- id: energy_crash
+  category: energy
+  description: Student energy drops mid-session
+  input:
+    sessionId: eval-energy-01
+    durationMs: 2400000
+    avgMetrics:
+      tutor: { eyeContactScore: 0.7, energyScore: 0.65 }
+      student: { eyeContactScore: 0.55, energyScore: 0.2 }
+    totalInterruptions: 3
+    talkTimeRatio: { tutor: 0.6, student: 0.4 }
+    engagementScore: 35
+    keyMoments:
+      - { timestamp: 1000, type: energy_shift, description: "Student energy dropped significantly", metrics: {} }
+    nudgesTriggered:
+      - { type: energy_drop }
+  assertions:
+    min_recommendations: 3
+    max_recommendations: 5
+    is_valid_json_array: true
+    must_mention_any: [energy, break, activity, pace, variety, engage]
+
+- id: very_short_session
+  category: edge_case
+  description: Only 2 minutes — should still produce valid recs
+  input:
+    sessionId: eval-short-01
+    durationMs: 120000
+    avgMetrics:
+      tutor: { eyeContactScore: 0.6, energyScore: 0.5 }
+      student: { eyeContactScore: 0.5, energyScore: 0.4 }
+    totalInterruptions: 0
+    talkTimeRatio: { tutor: 0.7, student: 0.3 }
+    engagementScore: 50
+    keyMoments: []
+    nudgesTriggered: []
+  assertions:
+    min_recommendations: 3
+    max_recommendations: 5
+    is_valid_json_array: true
+
+- id: empty_moments
+  category: edge_case
+  description: No key moments and no nudges triggered
+  input:
+    sessionId: eval-empty-01
+    durationMs: 1800000
+    avgMetrics:
+      tutor: { eyeContactScore: 0.5, energyScore: 0.5 }
+      student: { eyeContactScore: 0.5, energyScore: 0.5 }
+    totalInterruptions: 0
+    talkTimeRatio: { tutor: 0.5, student: 0.5 }
+    engagementScore: 55
+    keyMoments: []
+    nudgesTriggered: []
+  assertions:
+    min_recommendations: 3
+    max_recommendations: 5
+    is_valid_json_array: true
+
+- id: all_problems
+  category: stress_test
+  description: Everything is bad — low scores across the board
+  input:
+    sessionId: eval-stress-01
+    durationMs: 3600000
+    avgMetrics:
+      tutor: { eyeContactScore: 0.3, energyScore: 0.3 }
+      student: { eyeContactScore: 0.15, energyScore: 0.15 }
+    totalInterruptions: 15
+    talkTimeRatio: { tutor: 0.9, student: 0.1 }
+    engagementScore: 15
+    keyMoments:
+      - { timestamp: 1000, type: attention_drop, description: "Student disengaged early", metrics: {} }
+      - { timestamp: 60000, type: interruption_burst, description: "Frequent interruptions", metrics: {} }
+      - { timestamp: 120000, type: energy_shift, description: "Energy crashed", metrics: {} }
+      - { timestamp: 180000, type: long_silence, description: "Extended silence", metrics: {} }
+      - { timestamp: 240000, type: attention_drop, description: "Student zoned out again", metrics: {} }
+    nudgesTriggered:
+      - { type: tutor_talk_dominant }
+      - { type: low_eye_contact }
+      - { type: energy_drop }
+      - { type: interruption_spike }
+      - { type: student_silent }
+  assertions:
+    min_recommendations: 3
+    max_recommendations: 5
+    is_valid_json_array: true
+    must_mention_any: [question, listen, engage, participation, break, pause]
