@@ -23,8 +23,9 @@ Thumbs.db
 *.swp
 *.swo
 
-# Eval results
+# Eval results & connectivity checks
 evals/results.jsonl
+evals/cases/connectivity.yaml
 
 # Logs
 *.log

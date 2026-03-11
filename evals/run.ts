@@ -1,6 +1,6 @@
-import { readFileSync, appendFileSync, writeFileSync } from 'fs';
+import { readFileSync, appendFileSync, writeFileSync, existsSync } from 'fs';
 import { parse } from 'yaml';
-import { generateRecommendationsTraced } from '../server/langsmith/tracing.js';
+import { generateRecommendationsTraced, callLlmRaw } from '../server/langsmith/tracing.js';
 
 interface Assertions {
   min_recommendations?: number;
@@ -8,13 +8,15 @@ interface Assertions {
   is_valid_json_array?: boolean;
   must_mention_any?: string[];
   must_not_contain?: string[];
+  min_length?: number;
 }
 
 interface EvalCase {
   id: string;
   category: string;
   description: string;
-  input: Record<string, unknown>;
+  input?: Record<string, unknown>;
+  prompt?: string;
   assertions: Assertions;
 }
 
@@ -23,7 +25,7 @@ interface EvalResult {
   category: string;
   passed: boolean;
   failures: string[];
-  recommendations: string[];
+  output: string[];
   latencyMs: number;
 }
 
@@ -62,15 +64,21 @@ function checkAssertions(recs: string[], assertions: Assertions): string[] {
     }
   }
 
+  if (assertions.min_length != null && joined.length < assertions.min_length) {
+    failures.push(`Expected response length >= ${assertions.min_length}, got ${joined.length}`);
+  }
+
   return failures;
 }
 
 async function main() {
-  const yamlContent = readFileSync(
+  const recYaml = readFileSync(
     new URL('./cases/recommendations.yaml', import.meta.url),
     'utf-8',
   );
-  const cases: EvalCase[] = parse(yamlContent);
+  const connPath = new URL('./cases/connectivity.yaml', import.meta.url);
+  const connCases: EvalCase[] = existsSync(connPath) ? parse(readFileSync(connPath, 'utf-8')) : [];
+  const cases: EvalCase[] = [...connCases, ...parse(recYaml)];
 
   console.log(`\nRunning ${cases.length} eval cases...\n`);
 
@@ -86,7 +94,12 @@ async function main() {
     let failures: string[] = [];
 
     try {
-      recs = await generateRecommendationsTraced(testCase.input as never);
+      if (testCase.prompt) {
+        const raw = await callLlmRaw(testCase.prompt);
+        recs = [raw];
+      } else {
+        recs = await generateRecommendationsTraced(testCase.input as never);
+      }
       failures = checkAssertions(recs, testCase.assertions);
     } catch (err) {
       failures = [`Error: ${(err as Error).message}`];
@@ -100,7 +113,7 @@ async function main() {
       category: testCase.category,
       passed,
       failures,
-      recommendations: recs,
+      output: recs,
       latencyMs,
     };
     results.push(result);
