@@ -93,9 +93,10 @@ const PIPELINE_LANDMARKS = [
 
 interface FaceMeshCanvasProps {
   videoRef: React.RefObject<HTMLVideoElement | null>;
+  mirrored?: boolean;
 }
 
-export default function FaceMeshCanvas({ videoRef }: FaceMeshCanvasProps) {
+export default function FaceMeshCanvas({ videoRef, mirrored }: FaceMeshCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -245,6 +246,7 @@ export default function FaceMeshCanvas({ videoRef }: FaceMeshCanvasProps) {
         width: '100%',
         height: '100%',
         pointerEvents: 'none',
+        ...(mirrored ? { transform: 'scaleX(-1)' } : {}),
       }}
     />
   );

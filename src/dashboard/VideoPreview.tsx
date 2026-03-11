@@ -27,7 +27,7 @@ export default function VideoPreview({ stream, label, showMesh, mirrored }: Vide
         playsInline
         style={{ ...styles.video, ...(mirrored ? { transform: 'scaleX(-1)' } : {}) }}
       />
-      {showMesh && <FaceMeshCanvas videoRef={videoRef} />}
+      {showMesh && <FaceMeshCanvas videoRef={videoRef} mirrored={mirrored} />}
       {label && <div style={styles.label}>{label}</div>}
     </div>
   );
