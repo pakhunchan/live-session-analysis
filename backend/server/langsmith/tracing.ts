@@ -1,23 +1,5 @@
 import { traceable } from 'langsmith/traceable';
-
-interface SummaryInput {
-  sessionId: string;
-  durationMs: number;
-  avgMetrics: {
-    tutor: { eyeContactScore?: number; energyScore?: number };
-    student: { eyeContactScore?: number; energyScore?: number };
-  };
-  totalInterruptions: number;
-  talkTimeRatio: { tutor: number; student: number };
-  engagementScore: number;
-  keyMoments: Array<{
-    timestamp: number;
-    type: string;
-    description: string;
-    metrics: Record<string, unknown>;
-  }>;
-  nudgesTriggered: Array<{ type: string; [key: string]: unknown }>;
-}
+import type { SummaryInput } from '../../shared/types.js';
 
 function formatMetricsPrompt(summary: SummaryInput): string {
   return JSON.stringify({
