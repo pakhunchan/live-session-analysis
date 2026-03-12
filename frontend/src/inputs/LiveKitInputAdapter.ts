@@ -18,6 +18,7 @@ export interface LiveKitInputAdapterConfig {
   token: string;
   inputSource: LiveKitInputSource;
   file?: File;
+  earlyStream?: MediaStream;
 }
 
 type RemoteTrackCallback = (stream: MediaStream, videoElement: HTMLVideoElement) => void;
@@ -79,14 +80,22 @@ export class LiveKitInputAdapter implements InputAdapter {
   }
 
   private async publishWebcamTracks(): Promise<void> {
-    const tracks = await createLocalTracks({
-      video: { resolution: { width: 1280, height: 720, frameRate: 30 } },
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
+    let tracks;
+    if (this.config.earlyStream) {
+      // Use pre-acquired stream (needed for Safari user gesture requirement)
+      tracks = this.config.earlyStream.getTracks().map((t) =>
+        t.kind === 'video' ? new LocalVideoTrack(t) : new LocalAudioTrack(t),
+      );
+    } else {
+      tracks = await createLocalTracks({
+        video: { resolution: { width: 1280, height: 720, frameRate: 30 } },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+    }
 
     this.localStream = new MediaStream();
     for (const track of tracks) {

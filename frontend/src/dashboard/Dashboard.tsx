@@ -65,6 +65,13 @@ export default function Dashboard() {
         throw new Error('VITE_LIVEKIT_URL is not configured');
       }
 
+      // Request camera/mic permission immediately in the user gesture context
+      // (Safari blocks getUserMedia if called after an async gap like fetch)
+      let earlyStream: MediaStream | undefined;
+      if (config.inputSource === 'webcam') {
+        earlyStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      }
+
       // Fetch token from backend
       const baseUrl = API_BASE || '';
       const participantId = `${config.role}-${Math.random().toString(36).slice(2, 8)}`;
@@ -91,7 +98,7 @@ export default function Dashboard() {
       orchestratorRef.current = orchestrator;
 
       const { localStream, onRemoteReady } = await orchestrator.initialize(
-        { ...config, url: LIVEKIT_URL, token },
+        { ...config, url: LIVEKIT_URL, token, earlyStream },
         streamManager,
       );
 

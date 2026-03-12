@@ -8,7 +8,7 @@ export class LiveKitSessionOrchestrator {
   private remoteReadyResolve: (() => void) | null = null;
 
   async initialize(
-    config: LiveKitSetupConfig & { url: string; token: string },
+    config: LiveKitSetupConfig & { url: string; token: string; earlyStream?: MediaStream },
     streamManager: StreamManager,
   ): Promise<{
     localStream: MediaStream | null;
@@ -26,6 +26,7 @@ export class LiveKitSessionOrchestrator {
       token: config.token,
       inputSource: config.inputSource,
       file: config.file,
+      earlyStream: config.earlyStream,
     });
 
     // Wire remote track callback before connecting
