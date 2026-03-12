@@ -17,7 +17,7 @@ function makeParticipant(overrides: Partial<ParticipantMetrics> = {}): Participa
 
 function makeSession(overrides: Partial<SessionMetrics> = {}): SessionMetrics {
   return {
-    interruptionCount: 0,
+    interruptions: { student: 0, tutor: 0, accident: 0 },
     currentSilenceDurationMs: 0,
     engagementTrend: 'stable',
     sessionElapsedMs: 300_000, // 5 min
@@ -129,13 +129,13 @@ describe('defaultRules', () => {
   // interruption_spike
   it('interruption_spike triggers when ≥ 3 interruptions', () => {
     const rule = findRule('interruption_spike');
-    const snap = makeSnapshot({ session: { interruptionCount: 3 } });
+    const snap = makeSnapshot({ session: { interruptions: { student: 2, tutor: 1, accident: 0 } } });
     expect(rule.condition(snap)).toBe(true);
   });
 
   it('interruption_spike does NOT trigger when < 3 interruptions', () => {
     const rule = findRule('interruption_spike');
-    const snap = makeSnapshot({ session: { interruptionCount: 2 } });
+    const snap = makeSnapshot({ session: { interruptions: { student: 1, tutor: 1, accident: 0 } } });
     expect(rule.condition(snap)).toBe(false);
   });
 });

@@ -115,8 +115,10 @@ export class NudgeEngine {
           studentEnergy: snapshot.student.energyScore,
           tutorEnergy: snapshot.tutor.energyScore,
         };
-      case 'interruption_spike':
-        return { interruptionCount: snapshot.session.interruptionCount };
+      case 'interruption_spike': {
+        const { student, tutor, accident } = snapshot.session.interruptions;
+        return { interruptionCount: student + tutor + accident };
+      }
       default:
         return {};
     }

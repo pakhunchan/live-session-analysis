@@ -7,7 +7,6 @@ import { PitchTracker } from './pitchTracker';
 import type { VadManager } from './VadManager';
 import { VoiceActivityDetector } from './vad';
 import { TalkTimeAccumulator } from './talkTime';
-import { InterruptionDetector } from './interruptionDetector';
 
 export interface AudioPipelineConfig {
   rmsHistorySize: number;
@@ -42,7 +41,6 @@ export class AudioPipeline {
   };
 
   private talkTime = new TalkTimeAccumulator();
-  private interruptionDetector = new InterruptionDetector();
 
   constructor(eventBus: EventBus, config: Partial<AudioPipelineConfig> = {}) {
     this.eventBus = eventBus;
@@ -96,13 +94,12 @@ export class AudioPipeline {
       voiceEnergy = computeVoiceEnergy(volumeVariance, spectralBrightness, speechRate);
     }
 
-    // Talk time & interruption tracking — use same VAD fallback logic
+    // Talk time tracking — use same VAD fallback logic
     const tutorSpeaking = this.vadManager?.isSpeaking('tutor')
       ?? this.fallbackVads.tutor.isSpeaking();
     const studentSpeaking = this.vadManager?.isSpeaking('student')
       ?? this.fallbackVads.student.isSpeaking();
     this.talkTime.update(tutorSpeaking, studentSpeaking, timestamp);
-    this.interruptionDetector.update(tutorSpeaking, studentSpeaking, timestamp);
 
     // Emit
     const dp: MetricDataPoint = {
@@ -128,10 +125,6 @@ export class AudioPipeline {
 
   getSilenceDurationMs(): number {
     return this.talkTime.getCurrentSilenceDurationMs();
-  }
-
-  getInterruptionCount(): number {
-    return this.interruptionDetector.getCount();
   }
 
   getRmsHistory(participant: ParticipantRole): number[] {

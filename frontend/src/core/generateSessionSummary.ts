@@ -23,8 +23,11 @@ export function generateSessionSummary(
   const avgTutor = averageParticipantMetrics(history.map(s => s.tutor));
   const avgStudent = averageParticipantMetrics(history.map(s => s.student));
 
-  // Interruptions: cumulative counter, take the max
-  const totalInterruptions = Math.max(...history.map(s => s.session.interruptionCount));
+  // Interruptions: cumulative counter, take the max total
+  const totalInterruptions = Math.max(...history.map(s => {
+    const { student, tutor, accident } = s.session.interruptions;
+    return student + tutor + accident;
+  }));
 
   // Talk time ratio: mean across snapshots
   const tutorTalk = mean(history.map(s => s.tutor.talkTimePercent));
@@ -133,8 +136,10 @@ function detectKeyMoments(history: MetricSnapshot[]): KeyMoment[] {
   // 4. Interruption burst: interruptionCount jumps by 3+ within a 30s window (60 snapshots at 2Hz)
   const windowSize = 60;
   for (let i = windowSize; i < history.length; i++) {
-    const countNow = history[i].session.interruptionCount;
-    const countBefore = history[i - windowSize].session.interruptionCount;
+    const iNow = history[i].session.interruptions;
+    const countNow = iNow.student + iNow.tutor + iNow.accident;
+    const iBefore = history[i - windowSize].session.interruptions;
+    const countBefore = iBefore.student + iBefore.tutor + iBefore.accident;
     if (countNow - countBefore >= 3) {
       moments.push({
         timestamp: history[i].timestamp,

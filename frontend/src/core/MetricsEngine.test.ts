@@ -47,7 +47,7 @@ function makeSnapshot(overrides: Partial<{
       distractionDurationMs: 0,
     },
     session: {
-      interruptionCount: 0,
+      interruptions: { student: 0, tutor: 0, accident: 0 },
       currentSilenceDurationMs: 0,
       engagementTrend: 'stable',
       sessionElapsedMs: 10000,
@@ -68,7 +68,7 @@ describe('computeSnapshot', () => {
       3000,
     );
 
-    const snap = computeSnapshot('sess1', 1000, tutor, student, 2, 0, 10000, [], 10);
+    const snap = computeSnapshot('sess1', 1000, tutor, student, { student: 1, tutor: 1, accident: 0 }, 0, 10000, [], 10);
 
     expect(snap.sessionId).toBe('sess1');
     expect(snap.timestamp).toBe(1000);
@@ -77,14 +77,14 @@ describe('computeSnapshot', () => {
     expect(snap.tutor.isSpeaking).toBe(true);
     expect(snap.tutor.talkTimePercent).toBe(0.5); // 5000/10000
     expect(snap.student.eyeContactScore).toBe(0.6);
-    expect(snap.session.interruptionCount).toBe(2);
+    expect(snap.session.interruptions).toEqual({ student: 1, tutor: 1, accident: 0 });
   });
 
   it('handles null video (face not detected)', () => {
     const tutor = makeAccumulator(null, { isSpeaking: false, voiceEnergy: 0.1 });
     const student = makeAccumulator(null, { isSpeaking: false, voiceEnergy: 0.05 });
 
-    const snap = computeSnapshot('sess1', 1000, tutor, student, 0, 0, 5000, [], 10);
+    const snap = computeSnapshot('sess1', 1000, tutor, student, { student: 0, tutor: 0, accident: 0 }, 0, 5000, [], 10);
 
     expect(snap.tutor.faceDetected).toBe(false);
     expect(snap.tutor.eyeContactScore).toBe(0);
@@ -100,7 +100,7 @@ describe('computeSnapshot', () => {
     );
     const student = makeAccumulator(null, null);
 
-    const snap = computeSnapshot('sess1', 1000, tutor, student, 0, 0, 5000, [], 10);
+    const snap = computeSnapshot('sess1', 1000, tutor, student, { student: 0, tutor: 0, accident: 0 }, 0, 5000, [], 10);
 
     expect(snap.tutor.isSpeaking).toBe(false);
     expect(snap.student.isSpeaking).toBe(false);
@@ -141,7 +141,7 @@ describe('MetricsEngine integration', () => {
     const tutor = makeAccumulator(null, { isSpeaking: true }, 7000);
     const student = makeAccumulator(null, { isSpeaking: false }, 3000);
 
-    const snap = computeSnapshot('sess1', 1000, tutor, student, 0, 0, 10000, [], 10);
+    const snap = computeSnapshot('sess1', 1000, tutor, student, { student: 0, tutor: 0, accident: 0 }, 0, 10000, [], 10);
 
     expect(snap.tutor.talkTimePercent).toBe(0.7);
     expect(snap.student.talkTimePercent).toBe(0.3);
@@ -151,8 +151,8 @@ describe('MetricsEngine integration', () => {
     const tutor = makeAccumulator(null, null);
     const student = makeAccumulator(null, null);
 
-    const snap = computeSnapshot('sess1', 1000, tutor, student, 5, 0, 10000, [], 10);
+    const snap = computeSnapshot('sess1', 1000, tutor, student, { student: 3, tutor: 1, accident: 1 }, 0, 10000, [], 10);
 
-    expect(snap.session.interruptionCount).toBe(5);
+    expect(snap.session.interruptions).toEqual({ student: 3, tutor: 1, accident: 1 });
   });
 });

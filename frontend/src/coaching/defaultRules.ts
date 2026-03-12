@@ -47,6 +47,9 @@ export const defaultRules: NudgeRule[] = [
     message: 'Several interruptions detected — consider establishing turn-taking norms.',
     priority: 'high',
     cooldownMs: 180_000,
-    condition: (snap) => snap.session.interruptionCount >= 3,
+    condition: (snap) => {
+      const { student, tutor, accident } = snap.session.interruptions;
+      return student + tutor + accident >= 3;
+    },
   },
 ];

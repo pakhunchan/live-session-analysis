@@ -6,8 +6,10 @@ import type {
   SessionMetrics,
   EngagementTrend,
   EnergyBreakdown,
+  InterruptionCounts,
 } from '../types';
 import { engagementScore } from './engagement';
+import { InterruptionDetector } from '../audio/interruptionDetector';
 
 export interface MetricsEngineConfig {
   sessionId: string;
@@ -50,7 +52,7 @@ export function computeSnapshot(
   timestamp: number,
   tutorAcc: ParticipantAccumulator,
   studentAcc: ParticipantAccumulator,
-  interruptionCount: number,
+  interruptions: InterruptionCounts,
   currentSilenceDurationMs: number,
   sessionElapsedMs: number,
   recentSnapshots: MetricSnapshot[],
@@ -61,7 +63,7 @@ export function computeSnapshot(
   const student = buildParticipantMetrics(studentAcc, sessionElapsedMs, distractionDurations.student);
 
   const session: SessionMetrics = {
-    interruptionCount,
+    interruptions,
     currentSilenceDurationMs,
     engagementTrend: computeTrend(recentSnapshots, trendWindowSize),
     sessionElapsedMs,
@@ -172,7 +174,7 @@ export class MetricsEngine {
   private config: MetricsEngineConfig;
   private startTime: number = 0;
   private history: MetricSnapshot[] = [];
-  private interruptionCount = 0;
+  private interruptionDetector = new InterruptionDetector();
   private currentSilenceDurationMs = 0;
   private lastSilenceCheckTime = 0;
 
@@ -248,7 +250,7 @@ export class MetricsEngine {
       acc.latestAudio = dp;
     }
 
-    // Silence tracking
+    // Silence + interruption tracking (driven by audio data points from both participants)
     const now = dp.timestamp;
     const tutorSpeaking = this.tutorAcc.latestAudio?.isSpeaking ?? false;
     const studentSpeaking = this.studentAcc.latestAudio?.isSpeaking ?? false;
@@ -259,10 +261,10 @@ export class MetricsEngine {
       this.currentSilenceDurationMs = 0;
     }
     this.lastSilenceCheckTime = now;
-  }
 
-  setInterruptionCount(count: number): void {
-    this.interruptionCount = count;
+    // Use the data point's timestamp (server-stamped for remote, local for own)
+    const ts = dp.serverTimestamp ?? dp.timestamp;
+    this.interruptionDetector.update(tutorSpeaking, studentSpeaking, ts);
   }
 
   getHistory(): MetricSnapshot[] {
@@ -282,7 +284,7 @@ export class MetricsEngine {
       now,
       this.tutorAcc,
       this.studentAcc,
-      this.interruptionCount,
+      this.interruptionDetector.getCounts(),
       this.currentSilenceDurationMs,
       sessionElapsedMs,
       this.history,
