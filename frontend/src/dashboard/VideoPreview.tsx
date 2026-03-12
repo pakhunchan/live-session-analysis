@@ -37,6 +37,8 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     position: 'relative',
     flex: 1,
+    height: '100%',
+    minHeight: 0,
   },
   video: {
     width: '100%',

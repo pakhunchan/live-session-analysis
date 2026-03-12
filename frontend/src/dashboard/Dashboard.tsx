@@ -372,6 +372,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     gap: 0,
     position: 'relative',
+    height: 'calc(100vh - 6rem)',
   },
   mainArea: {
     flex: 1,
@@ -384,6 +385,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '8px',
     overflow: 'hidden',
     background: '#000',
+    flex: 1,
+    minHeight: 0,
   },
   waitingOverlay: {
     position: 'absolute',
@@ -473,7 +476,8 @@ const styles: Record<string, React.CSSProperties> = {
   },
   stopBtn: {
     display: 'block',
-    margin: '1rem auto 0',
+    margin: '0.5rem auto 0',
+    flexShrink: 0,
     padding: '0.5rem 2rem',
     background: '#dc3545',
     color: '#fff',
