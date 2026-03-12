@@ -7,6 +7,7 @@ import type {
   EngagementTrend,
   EnergyBreakdown,
   InterruptionCounts,
+  LatencyTrace,
 } from '../types';
 import { engagementScore } from './engagement';
 import { InterruptionDetector } from '../audio/interruptionDetector';
@@ -191,9 +192,14 @@ export class MetricsEngine {
 
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private onSnapshot: ((snapshot: MetricSnapshot) => void) | null = null;
+  private onTrace: ((trace: LatencyTrace) => void) | null = null;
 
   constructor(config: Partial<MetricsEngineConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  setTraceCallback(cb: (trace: LatencyTrace) => void): void {
+    this.onTrace = cb;
   }
 
   start(onSnapshot?: (snapshot: MetricSnapshot) => void): void {
@@ -219,6 +225,11 @@ export class MetricsEngine {
   }
 
   ingestDataPoint(dp: MetricDataPoint): void {
+    if (dp._trace) {
+      dp._trace.t6_ingested = Date.now();
+      this.onTrace?.(dp._trace);
+    }
+
     const acc = dp.participant === 'tutor' ? this.tutorAcc : this.studentAcc;
 
     if (dp.source === 'video') {

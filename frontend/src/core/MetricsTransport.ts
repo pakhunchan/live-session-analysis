@@ -23,9 +23,22 @@ export class MetricsTransport {
   private roomName = '';
   private role: ParticipantRole = 'tutor';
 
+  // Clock-sync state
+  private clockOffsetSamples: number[] = [];
+  private clockSyncTimer: ReturnType<typeof setInterval> | null = null;
+  private static readonly CLOCK_SYNC_INTERVAL_MS = 10_000;
+  private static readonly CLOCK_SYNC_MAX_SAMPLES = 5;
+
   constructor(config: Partial<MetricsTransportConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config };
     this.reconnectDelay = this.config.initialReconnectDelayMs;
+  }
+
+  getClockOffset(): number {
+    if (this.clockOffsetSamples.length === 0) return 0;
+    // Median of recent samples for stability
+    const sorted = [...this.clockOffsetSamples].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
   }
 
   connect(wsUrl: string, roomName: string, role: ParticipantRole): void {
@@ -50,6 +63,7 @@ export class MetricsTransport {
 
   dispose(): void {
     this.disposed = true;
+    this.stopClockSync();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
@@ -60,6 +74,19 @@ export class MetricsTransport {
       this.ws = null;
     }
     this.remoteCallbacks = [];
+  }
+
+  private sendClockSync(): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: 'clock-sync', clientTs: Date.now() }));
+    }
+  }
+
+  private stopClockSync(): void {
+    if (this.clockSyncTimer) {
+      clearInterval(this.clockSyncTimer);
+      this.clockSyncTimer = null;
+    }
   }
 
   private openConnection(): void {
@@ -79,14 +106,35 @@ export class MetricsTransport {
         roomName: this.roomName,
         role: this.role,
       }));
+
+      // Start clock-sync pings
+      this.stopClockSync();
+      this.sendClockSync();
+      this.clockSyncTimer = setInterval(() => this.sendClockSync(), MetricsTransport.CLOCK_SYNC_INTERVAL_MS);
     };
 
     this.ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data as string);
+
+        if (msg.type === 'clock-sync-ack' && typeof msg.clientTs === 'number' && typeof msg.serverTs === 'number') {
+          const now = Date.now();
+          const rtt = now - msg.clientTs;
+          const offset = msg.serverTs - msg.clientTs - rtt / 2;
+          this.clockOffsetSamples.push(offset);
+          if (this.clockOffsetSamples.length > MetricsTransport.CLOCK_SYNC_MAX_SAMPLES) {
+            this.clockOffsetSamples.shift();
+          }
+          return;
+        }
+
         if (msg.type === 'metrics' && msg.data && msg.serverTimestamp) {
           const dp = msg.data as MetricDataPoint;
           dp.serverTimestamp = msg.serverTimestamp;
+          // Stamp t5 — transport receive time
+          if (dp._trace) {
+            dp._trace.t5_clientRecv = Date.now();
+          }
           for (const cb of this.remoteCallbacks) {
             cb(dp, msg.serverTimestamp);
           }

@@ -170,6 +170,12 @@ export class VideoPipeline {
       gazeVariationX,
     };
 
+    // Latency trace — sample ~1 per second
+    const now = Date.now();
+    if (now % 1000 < 55) {
+      dp._trace = { t0_capture: frame.timestamp, t1_processed: now, t2_sent: 0 };
+    }
+
     this.eventBus.emit(EventType.VIDEO_METRICS, dp);
   }
 

@@ -49,18 +49,40 @@ export function attachMetricsRelay(server: HttpServer): void {
         return;
       }
 
+      // Clock-sync: respond immediately with server timestamp
+      if (msg.type === 'clock-sync' && typeof msg.clientTs === 'number') {
+        ws.send(JSON.stringify({
+          type: 'clock-sync-ack',
+          clientTs: msg.clientTs,
+          serverTs: Date.now(),
+        }));
+        return;
+      }
+
       if (msg.type === 'metrics' && roomName && role) {
         const serverTimestamp = Date.now();
-        const relay = JSON.stringify({
-          type: 'metrics',
-          data: msg.data,
-          serverTimestamp,
-        });
+
+        // Stamp t3 (server receive) on traced messages
+        const data = msg.data as Record<string, unknown> | undefined;
+        if (data?._trace && typeof data._trace === 'object') {
+          (data._trace as Record<string, unknown>).t3_serverRecv = serverTimestamp;
+        }
 
         const room = rooms.get(roomName);
         if (!room) return;
 
         if (role === 'student') {
+          // Stamp t4 (server forward) just before sending
+          if (data?._trace && typeof data._trace === 'object') {
+            (data._trace as Record<string, unknown>).t4_serverFwd = Date.now();
+          }
+
+          const relay = JSON.stringify({
+            type: 'metrics',
+            data: msg.data,
+            serverTimestamp,
+          });
+
           // Forward student metrics to tutors in the same room
           for (const conn of room.connections) {
             if (conn.role === 'tutor' && conn.ws.readyState === WebSocket.OPEN) {

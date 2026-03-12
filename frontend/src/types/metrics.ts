@@ -1,3 +1,14 @@
+export interface LatencyTrace {
+  t0_capture: number;
+  t1_processed: number;
+  t2_sent: number;
+  t3_serverRecv?: number;
+  t4_serverFwd?: number;
+  t5_clientRecv?: number;
+  t6_ingested?: number;
+  clockOffset?: number;  // sender's estimated offset to server
+}
+
 export type ParticipantRole = 'tutor' | 'student';
 
 export type InterruptionCategory = 'student_interrupted' | 'tutor_interrupted' | 'accident';
@@ -88,4 +99,6 @@ export interface MetricDataPoint {
   pitchVariance?: number;     // 0-1
   // Set by backend relay — server-receipt timestamp for consistent ordering
   serverTimestamp?: number;
+  // Latency trace — sampled at ~1Hz for pipeline diagnostics
+  _trace?: LatencyTrace;
 }

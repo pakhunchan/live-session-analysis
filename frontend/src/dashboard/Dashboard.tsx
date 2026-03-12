@@ -365,6 +365,7 @@ export default function Dashboard() {
             <Sidebar
               snapshot={snapshot}
               history={history}
+              latencyBreakdown={tutor.latencyBreakdown}
               isOpen={sidebarOpen}
               onToggle={() => setSidebarOpen(!sidebarOpen)}
             />

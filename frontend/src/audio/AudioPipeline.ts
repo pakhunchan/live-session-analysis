@@ -116,6 +116,12 @@ export class AudioPipeline {
       pitchVariance,
     };
 
+    // Latency trace — sample ~1 per second (at 20Hz audio, 50ms window → ~5% of messages)
+    const now = Date.now();
+    if (now % 1000 < 55) {
+      dp._trace = { t0_capture: timestamp, t1_processed: now, t2_sent: 0 };
+    }
+
     this.eventBus.emit(EventType.AUDIO_METRICS, dp);
   }
 

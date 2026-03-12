@@ -2,11 +2,14 @@ import React, { useState } from 'react';
 import { engagementScore } from '../core/engagement';
 import SessionStatusBar from './SessionStatusBar';
 import TimelineChart from './TimelineChart';
+import LatencyPanel from './LatencyPanel';
+import type { LatencyBreakdown } from '../core/LatencyTracker';
 import type { MetricSnapshot, ParticipantMetrics, EnergyBreakdown } from '../types';
 
 interface SidebarProps {
   snapshot: MetricSnapshot | null;
   history: MetricSnapshot[];
+  latencyBreakdown: LatencyBreakdown | null;
   isOpen: boolean;
   onToggle: () => void;
 }
@@ -145,7 +148,7 @@ function BreakdownRow({ label, value }: { label: string; value: number }) {
   );
 }
 
-export default function Sidebar({ snapshot, history, isOpen, onToggle }: SidebarProps) {
+export default function Sidebar({ snapshot, history, latencyBreakdown, isOpen, onToggle }: SidebarProps) {
   return (
     <>
       <button
@@ -168,6 +171,7 @@ export default function Sidebar({ snapshot, history, isOpen, onToggle }: Sidebar
               <div style={s.timelineTitle}>Engagement Timeline</div>
               <TimelineChart history={history} height={140} />
             </div>
+            <LatencyPanel breakdown={latencyBreakdown} />
           </div>
         </aside>
       )}

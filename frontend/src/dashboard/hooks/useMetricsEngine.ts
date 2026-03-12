@@ -7,6 +7,8 @@ import { VadManager } from '../../audio/VadManager';
 import { StreamManager } from '../../core/StreamManager';
 import { NudgeEngine } from '../../coaching/NudgeEngine';
 import { MetricsTransport } from '../../core/MetricsTransport';
+import { LatencyTracker } from '../../core/LatencyTracker';
+import type { LatencyBreakdown } from '../../core/LatencyTracker';
 import type { IFaceDetector } from '../../video/FaceDetector';
 import type { MetricSnapshot, MetricDataPoint, Nudge } from '../../types';
 import { EventType } from '../../types';
@@ -17,6 +19,7 @@ export interface UseMetricsEngineReturn {
   snapshot: MetricSnapshot | null;
   history: MetricSnapshot[];
   nudges: Nudge[];
+  latencyBreakdown: LatencyBreakdown | null;
   isRunning: boolean;
   start: (detector: IFaceDetector, roomName: string) => Promise<void>;
   stop: () => void;
@@ -31,6 +34,7 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   const [history, setHistory] = useState<MetricSnapshot[]>([]);
   const [nudges, setNudges] = useState<Nudge[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [latencyBreakdown, setLatencyBreakdown] = useState<LatencyBreakdown | null>(null);
 
   const eventBusRef = useRef(new EventBus());
   const metricsEngineRef = useRef<MetricsEngine | null>(null);
@@ -40,6 +44,7 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   const streamManagerRef = useRef(new StreamManager({ videoFps: 2, audioSampleHz: 20 }));
   const nudgeEngineRef = useRef<NudgeEngine | null>(null);
   const transportRef = useRef<MetricsTransport | null>(null);
+  const latencyTrackerRef = useRef<LatencyTracker | null>(null);
 
   // Subscribe to snapshots — full history kept for post-session summary
   useEffect(() => {
@@ -63,8 +68,13 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   useEffect(() => {
     const bus = eventBusRef.current;
     const unsub = bus.on<MetricDataPoint>(EventType.VIDEO_METRICS, (event) => {
-      metricsEngineRef.current?.ingestDataPoint(event.payload);
-      transportRef.current?.send(event.payload);
+      const dp = event.payload;
+      if (dp._trace) {
+        dp._trace.t2_sent = Date.now();
+        dp._trace.clockOffset = transportRef.current?.getClockOffset();
+      }
+      metricsEngineRef.current?.ingestDataPoint(dp);
+      transportRef.current?.send(dp);
     });
     return unsub;
   }, []);
@@ -73,8 +83,13 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   useEffect(() => {
     const bus = eventBusRef.current;
     const unsub = bus.on<MetricDataPoint>(EventType.AUDIO_METRICS, (event) => {
-      metricsEngineRef.current?.ingestDataPoint(event.payload);
-      transportRef.current?.send(event.payload);
+      const dp = event.payload;
+      if (dp._trace) {
+        dp._trace.t2_sent = Date.now();
+        dp._trace.clockOffset = transportRef.current?.getClockOffset();
+      }
+      metricsEngineRef.current?.ingestDataPoint(dp);
+      transportRef.current?.send(dp);
     });
     return unsub;
   }, []);
@@ -95,6 +110,15 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     videoPipelineRef.current = vp;
     audioPipelineRef.current = ap;
     vadManagerRef.current = vadManager;
+
+    // Set up LatencyTracker — fed completed traces from MetricsEngine
+    const lt = new LatencyTracker();
+    latencyTrackerRef.current = lt;
+    me.setTraceCallback((trace) => {
+      lt.setTutorClockOffset(transportRef.current?.getClockOffset() ?? 0);
+      lt.ingestTrace(trace);
+      setLatencyBreakdown(lt.getBreakdown());
+    });
 
     // Set up MetricsTransport — connect to backend relay
     const transport = new MetricsTransport();
@@ -171,6 +195,7 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     snapshot,
     history,
     nudges,
+    latencyBreakdown,
     isRunning,
     start,
     stop,
