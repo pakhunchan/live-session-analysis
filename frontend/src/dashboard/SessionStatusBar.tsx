@@ -30,11 +30,13 @@ function getTrendColor(trend: string): string {
 
 export default function SessionStatusBar({ session }: SessionStatusBarProps) {
   const s = session ?? {
-    interruptionCount: 0,
+    interruptions: { student: 0, tutor: 0, accident: 0 },
     currentSilenceDurationMs: 0,
     engagementTrend: 'stable' as const,
     sessionElapsedMs: 0,
   };
+
+  const { student, tutor, accident } = s.interruptions;
 
   return (
     <div style={styles.bar}>
@@ -43,8 +45,16 @@ export default function SessionStatusBar({ session }: SessionStatusBarProps) {
         <span style={styles.value}>{formatDuration(s.sessionElapsedMs)}</span>
       </div>
       <div style={styles.item}>
-        <span style={styles.label}>Interruptions</span>
-        <span style={styles.value}>{s.interruptionCount}</span>
+        <span style={styles.label}>Student</span>
+        <span style={styles.value}>{student}</span>
+      </div>
+      <div style={styles.item}>
+        <span style={styles.label}>Tutor</span>
+        <span style={styles.value}>{tutor}</span>
+      </div>
+      <div style={styles.item}>
+        <span style={styles.label}>Other</span>
+        <span style={styles.value}>{accident}</span>
       </div>
       <div style={styles.item}>
         <span style={styles.label}>Silence</span>

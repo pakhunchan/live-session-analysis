@@ -14,7 +14,7 @@ function makeSnapshot(overrides: Partial<MetricSnapshot> = {}): MetricSnapshot {
     distractionDurationMs: 0,
   };
   const defaultSession: SessionMetrics = {
-    interruptionCount: 0,
+    interruptions: { student: 0, tutor: 0, accident: 0 },
     currentSilenceDurationMs: 0,
     engagementTrend: 'stable',
     sessionElapsedMs: 5000,

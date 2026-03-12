@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useMetricsEngine } from './hooks/useMetricsEngine';
+import { useStudentPipeline } from './hooks/useStudentPipeline';
 import VideoPreview from './VideoPreview';
 import PersistentMetrics from './PersistentMetrics';
 import StudentOverlays from './StudentOverlays';
@@ -17,7 +18,8 @@ const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
 export default function Dashboard() {
-  const { snapshot, history, nudges, isRunning, start, stop, resetHistory, startVadForStream, eventBus, streamManager } = useMetricsEngine();
+  const tutor = useMetricsEngine();
+  const student = useStudentPipeline();
   const [status, setStatus] = useState('Ready');
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +63,13 @@ export default function Dashboard() {
     stream.getAudioTracks().forEach(t => { t.enabled = !next; });
     setMuted(next);
   }, [muted, myRole, tutorStream, studentStream]);
+
+  // Role-aware accessors
+  const isRunning = myRole === 'tutor' ? tutor.isRunning : student.isRunning;
+  const snapshot = tutor.snapshot;
+  const history = tutor.history;
+  const nudges = tutor.nudges;
+  const streamManager = myRole === 'tutor' ? tutor.streamManager : student.streamManager;
 
   const handleJoinRoom = useCallback(async (config: LiveKitSetupConfig) => {
     try {
@@ -106,9 +115,10 @@ export default function Dashboard() {
       const orchestrator = new LiveKitSessionOrchestrator();
       orchestratorRef.current = orchestrator;
 
+      const sm = config.role === 'tutor' ? tutor.streamManager : student.streamManager;
       const { localStream, onRemoteReady } = await orchestrator.initialize(
         { ...config, url: LIVEKIT_URL, token, earlyStream },
-        streamManager,
+        sm,
       );
 
       // Set local stream immediately
@@ -123,13 +133,17 @@ export default function Dashboard() {
       setStatus('Loading MediaPipe model...');
       await detector.initialize();
 
-      await start(detector);
+      if (config.role === 'tutor') {
+        await tutor.start(detector, config.roomName);
+      } else {
+        await student.start(detector, config.roomName);
+      }
       setStatus('Waiting for other participant...');
 
       // When remote participant joins, update state
       onRemoteReady.then(async () => {
         const otherRole = config.role === 'tutor' ? 'student' : 'tutor';
-        const remoteStream = streamManager.getStream(otherRole);
+        const remoteStream = sm.getStream(otherRole);
 
         if (config.role === 'tutor') {
           setStudentStream(remoteStream);
@@ -137,9 +151,9 @@ export default function Dashboard() {
           setTutorStream(remoteStream);
         }
 
-        // Start VAD for the remote stream
-        if (remoteStream) {
-          await startVadForStream(otherRole, remoteStream);
+        // Start VAD for the remote stream (tutor only — student doesn't process remote)
+        if (config.role === 'tutor' && remoteStream) {
+          await tutor.startVadForStream(otherRole, remoteStream);
         }
 
         setStatus('Running');
@@ -150,30 +164,35 @@ export default function Dashboard() {
     } finally {
       setSetupLoading(false);
     }
-  }, [start, startVadForStream, streamManager]);
+  }, [tutor, student]);
 
   const handleStop = useCallback(() => {
-    stop();
+    if (myRole === 'tutor') {
+      tutor.stop();
 
-    // Generate summary from history before clearing streams
-    const partial = generateSessionSummary(history, nudges);
-    const summary: SessionSummary = { ...partial, recommendations: [] };
-    setSessionSummary(summary);
+      // Generate summary from history before clearing streams
+      const partial = generateSessionSummary(tutor.history, tutor.nudges);
+      const summary: SessionSummary = { ...partial, recommendations: [] };
+      setSessionSummary(summary);
 
-    // Fetch recommendations via server proxy (non-blocking)
-    fetchRecommendations(partial)
-      .then(recs => setSessionSummary(prev => prev ? { ...prev, recommendations: recs } : null))
-      .catch(() => {
-        const fallback = generateFallbackRecommendations(partial);
-        setSessionSummary(prev => prev ? { ...prev, recommendations: fallback } : null);
-      });
+      // Fetch recommendations via server proxy (non-blocking)
+      fetchRecommendations(partial)
+        .then(recs => setSessionSummary(prev => prev ? { ...prev, recommendations: recs } : null))
+        .catch(() => {
+          const fallback = generateFallbackRecommendations(partial);
+          setSessionSummary(prev => prev ? { ...prev, recommendations: fallback } : null);
+        });
+    } else {
+      student.stop();
+      setSessionSummary({} as SessionSummary); // signal session ended
+    }
 
     orchestratorRef.current?.dispose();
     orchestratorRef.current = null;
     setTutorStream(null);
     setStudentStream(null);
     setStatus('Stopped');
-  }, [stop, history, nudges]);
+  }, [myRole, tutor, student]);
 
   const isTutorWebcam = myRole === 'tutor' && inputSource === 'webcam';
 
@@ -202,7 +221,7 @@ export default function Dashboard() {
           history={history}
           onNewSession={() => {
             setSessionSummary(null);
-            resetHistory();
+            tutor.resetHistory();
           }}
         />
       )}
@@ -212,7 +231,7 @@ export default function Dashboard() {
           <h2>Session Ended</h2>
           <p style={{ color: '#6c757d' }}>The tutor has ended the session. Thank you!</p>
           <button
-            onClick={() => { setSessionSummary(null); resetHistory(); }}
+            onClick={() => { setSessionSummary(null); tutor.resetHistory(); }}
             style={styles.stopBtn}
           >
             New Session
@@ -230,7 +249,7 @@ export default function Dashboard() {
                 ...(isFullscreen ? { borderRadius: 0, width: '100%', height: '100%' } : {}),
               }}
             >
-              {myRole === 'tutor' && <NudgeChips bus={eventBus} />}
+              {myRole === 'tutor' && <NudgeChips bus={tutor.eventBus} />}
 
               {/* Waiting overlay */}
               {status === 'Waiting for other participant...' && (

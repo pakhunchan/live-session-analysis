@@ -6,16 +6,19 @@ import { AudioPipeline } from '../../audio/AudioPipeline';
 import { VadManager } from '../../audio/VadManager';
 import { StreamManager } from '../../core/StreamManager';
 import { NudgeEngine } from '../../coaching/NudgeEngine';
+import { MetricsTransport } from '../../core/MetricsTransport';
 import type { IFaceDetector } from '../../video/FaceDetector';
 import type { MetricSnapshot, MetricDataPoint, Nudge } from '../../types';
 import { EventType } from '../../types';
+
+const WS_BASE = import.meta.env.VITE_WS_URL as string | undefined;
 
 export interface UseMetricsEngineReturn {
   snapshot: MetricSnapshot | null;
   history: MetricSnapshot[];
   nudges: Nudge[];
   isRunning: boolean;
-  start: (detector: IFaceDetector) => Promise<void>;
+  start: (detector: IFaceDetector, roomName: string) => Promise<void>;
   stop: () => void;
   resetHistory: () => void;
   startVadForStream: (role: 'tutor' | 'student', stream: MediaStream) => Promise<void>;
@@ -36,6 +39,7 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   const vadManagerRef = useRef<VadManager | null>(null);
   const streamManagerRef = useRef(new StreamManager({ videoFps: 2, audioSampleHz: 20 }));
   const nudgeEngineRef = useRef<NudgeEngine | null>(null);
+  const transportRef = useRef<MetricsTransport | null>(null);
 
   // Subscribe to snapshots — full history kept for post-session summary
   useEffect(() => {
@@ -55,35 +59,31 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     return unsub;
   }, []);
 
-  // Wire video metrics → metrics engine
+  // Wire video metrics → metrics engine + transport
   useEffect(() => {
     const bus = eventBusRef.current;
     const unsub = bus.on<MetricDataPoint>(EventType.VIDEO_METRICS, (event) => {
       metricsEngineRef.current?.ingestDataPoint(event.payload);
+      transportRef.current?.send(event.payload);
     });
     return unsub;
   }, []);
 
-  // Wire audio metrics → metrics engine
+  // Wire audio metrics → metrics engine + transport
   useEffect(() => {
     const bus = eventBusRef.current;
     const unsub = bus.on<MetricDataPoint>(EventType.AUDIO_METRICS, (event) => {
       metricsEngineRef.current?.ingestDataPoint(event.payload);
-      // Update interruption count from audio pipeline
-      if (audioPipelineRef.current) {
-        metricsEngineRef.current?.setInterruptionCount(
-          audioPipelineRef.current.getInterruptionCount()
-        );
-      }
+      transportRef.current?.send(event.payload);
     });
     return unsub;
   }, []);
 
-  const start = useCallback(async (detector: IFaceDetector) => {
+  const start = useCallback(async (detector: IFaceDetector, roomName: string) => {
     const bus = eventBusRef.current;
     const sm = streamManagerRef.current;
 
-    // Create engines
+    // Create engines — tutor processes own media only
     const me = new MetricsEngine({ sessionId, snapshotIntervalMs: 500 });
     const vp = new VideoPipeline(detector, bus);
     const ap = new AudioPipeline(bus);
@@ -95,6 +95,18 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     videoPipelineRef.current = vp;
     audioPipelineRef.current = ap;
     vadManagerRef.current = vadManager;
+
+    // Set up MetricsTransport — connect to backend relay
+    const transport = new MetricsTransport();
+    transportRef.current = transport;
+
+    const wsUrl = WS_BASE || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/metrics`;
+    transport.connect(wsUrl, roomName, 'tutor');
+
+    // Receive remote student metrics from backend → ingest into MetricsEngine
+    transport.onRemoteMetrics((dp, _serverTimestamp) => {
+      metricsEngineRef.current?.ingestDataPoint(dp);
+    });
 
     // Wire StreamManager callbacks
     sm.onFrame(async (frame) => {
@@ -118,19 +130,14 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
 
     // Start VadManager in background — non-blocking so session works even if
     // vad-web fails to load (ONNX/AudioWorklet issues)
-    const startVadForRole = async (role: 'tutor' | 'student') => {
-      const stream = sm.getStream(role);
-      if (stream) {
-        try {
-          await vadManager.startForParticipant(role, stream);
-        } catch (err) {
-          console.warn(`[VadManager] Failed to start VAD for ${role}:`, err);
-        }
+    const stream = sm.getStream('tutor');
+    if (stream) {
+      try {
+        await vadManager.startForParticipant('tutor', stream);
+      } catch (err) {
+        console.warn('[VadManager] Failed to start VAD for tutor:', err);
       }
-    };
-    Promise.all([startVadForRole('tutor'), startVadForRole('student')]).catch(() => {
-      // Silently degrade — AudioPipeline falls back to isSpeaking=false
-    });
+    }
   }, [sessionId]);
 
   const startVadForStream = useCallback(async (role: 'tutor' | 'student', stream: MediaStream) => {
@@ -144,6 +151,8 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
   }, []);
 
   const stop = useCallback(() => {
+    transportRef.current?.dispose();
+    transportRef.current = null;
     nudgeEngineRef.current?.stop();
     metricsEngineRef.current?.stop();
     streamManagerRef.current.stop();
