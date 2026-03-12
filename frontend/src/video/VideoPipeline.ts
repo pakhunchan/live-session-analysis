@@ -141,15 +141,14 @@ export class VideoPipeline {
 
     const exprResult = computeExpressionEnergy(features, history, undefined, pitchHist);
 
-    // Hold eye contact during blinks: gate on both instantaneous eyeOpenness
-    // and blinkActivity (variance-based — high means rapid blinking in recent window)
-    const eyesReliable = features.eyeOpenness >= 0.7 && exprResult.blinkActivity < 0.25;
+    // Blink gate: when blinkActivity >= 15%, only allow eye contact to increase (not decrease).
+    // This prevents blink-induced iris noise from dragging the score down.
+    const last = this.lastEyeContact[frame.participant];
+    const eyesReliable = features.eyeOpenness >= 0.7 && exprResult.blinkActivity < 0.15;
     const eyeContact = eyesReliable
       ? rawEyeContact
-      : this.lastEyeContact[frame.participant];
-    if (eyesReliable) {
-      this.lastEyeContact[frame.participant] = rawEyeContact;
-    }
+      : Math.max(rawEyeContact, last);
+    this.lastEyeContact[frame.participant] = eyeContact;
 
     const dp: MetricDataPoint = {
       source: 'video',
