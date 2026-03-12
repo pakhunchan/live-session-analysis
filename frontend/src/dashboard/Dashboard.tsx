@@ -187,7 +187,7 @@ export default function Dashboard() {
         <SessionSetup onStart={handleJoinRoom} isLoading={setupLoading} />
       )}
 
-      {!isRunning && sessionSummary && (
+      {!isRunning && sessionSummary && myRole === 'tutor' && (
         <PostSessionSummary
           summary={sessionSummary}
           history={history}
@@ -196,6 +196,19 @@ export default function Dashboard() {
             resetHistory();
           }}
         />
+      )}
+
+      {!isRunning && sessionSummary && myRole === 'student' && (
+        <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
+          <h2>Session Ended</h2>
+          <p style={{ color: '#6c757d' }}>The tutor has ended the session. Thank you!</p>
+          <button
+            onClick={() => { setSessionSummary(null); resetHistory(); }}
+            style={styles.stopBtn}
+          >
+            New Session
+          </button>
+        </div>
       )}
 
       {isRunning && (
@@ -208,7 +221,7 @@ export default function Dashboard() {
                 ...(isFullscreen ? { borderRadius: 0, width: '100%', height: '100%' } : {}),
               }}
             >
-              <NudgeChips bus={eventBus} />
+              {myRole === 'tutor' && <NudgeChips bus={eventBus} />}
 
               {/* Waiting overlay */}
               {status === 'Waiting for other participant...' && (
@@ -225,8 +238,8 @@ export default function Dashboard() {
                 showMesh={showMesh}
                 mirrored={primaryView === 'tutor' && isTutorWebcam && mirrorTutor}
               />
-              {primaryView === 'student' && <StudentOverlays metrics={snapshot?.student ?? null} />}
-              <PersistentMetrics student={snapshot?.student ?? null} />
+              {myRole === 'tutor' && primaryView === 'student' && <StudentOverlays metrics={snapshot?.student ?? null} />}
+              {myRole === 'tutor' && <PersistentMetrics student={snapshot?.student ?? null} />}
               {/* Mini overlay */}
               <div style={styles.miniOverlay}>
                 <VideoPreview
@@ -235,7 +248,7 @@ export default function Dashboard() {
                   showMesh={showMesh}
                   mirrored={primaryView === 'student' && isTutorWebcam && mirrorTutor}
                 />
-                {primaryView === 'tutor' && <StudentOverlays metrics={snapshot?.student ?? null} />}
+                {myRole === 'tutor' && primaryView === 'tutor' && <StudentOverlays metrics={snapshot?.student ?? null} />}
                 <button
                   onClick={swapPrimaryView}
                   style={styles.miniFullscreenBtn}
@@ -293,12 +306,14 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <Sidebar
-            snapshot={snapshot}
-            history={history}
-            isOpen={sidebarOpen}
-            onToggle={() => setSidebarOpen(!sidebarOpen)}
-          />
+          {myRole === 'tutor' && (
+            <Sidebar
+              snapshot={snapshot}
+              history={history}
+              isOpen={sidebarOpen}
+              onToggle={() => setSidebarOpen(!sidebarOpen)}
+            />
+          )}
         </div>
       )}
     </div>

@@ -2,7 +2,6 @@ import {
   Room,
   RoomEvent,
   Track,
-  VideoPresets,
   LocalVideoTrack,
   LocalAudioTrack,
   createLocalTracks,
@@ -102,8 +101,9 @@ export class LiveKitInputAdapter implements InputAdapter {
     for (const track of tracks) {
       await this.room!.localParticipant.publishTrack(track, {
         simulcast: false,
+        videoCodec: track instanceof LocalVideoTrack ? 'h264' : undefined,
         videoEncoding: track instanceof LocalVideoTrack
-          ? VideoPresets.h1080.encoding
+          ? { maxBitrate: 8_000_000, maxFramerate: 30 }
           : undefined,
       });
       this.localStream.addTrack(track.mediaStreamTrack);
