@@ -249,6 +249,19 @@ export default function Dashboard() {
                   mirrored={primaryView === 'student' && isTutorWebcam && mirrorTutor}
                 />
                 {myRole === 'tutor' && primaryView === 'tutor' && <StudentOverlays metrics={snapshot?.student ?? null} />}
+                {isTutorWebcam && primaryView === 'student' && (
+                  <button
+                    onClick={() => setMirrorTutor(m => !m)}
+                    style={{ ...styles.miniFullscreenBtn, right: 28 }}
+                    title={mirrorTutor ? 'Unmirror' : 'Mirror'}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={mirrorTutor ? '#60a5fa' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3" />
+                      <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
+                      <line x1="12" y1="1" x2="12" y2="23" />
+                    </svg>
+                  </button>
+                )}
                 <button
                   onClick={swapPrimaryView}
                   style={styles.miniFullscreenBtn}
@@ -271,17 +284,20 @@ export default function Dashboard() {
                   />
                   {' '}Show Mesh
                 </label>
-                {isTutorWebcam && (
-                  <label style={styles.controlToggle}>
-                    <input
-                      type="checkbox"
-                      checked={mirrorTutor}
-                      onChange={(e) => setMirrorTutor(e.target.checked)}
-                    />
-                    {' '}Mirror
-                  </label>
-                )}
               </div>
+              {isTutorWebcam && primaryView === 'tutor' && (
+                <button
+                  onClick={() => setMirrorTutor(m => !m)}
+                  style={{ ...styles.fullscreenBtn, right: 56 }}
+                  title={mirrorTutor ? 'Unmirror' : 'Mirror'}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={mirrorTutor ? '#60a5fa' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3" />
+                    <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
+                    <line x1="12" y1="1" x2="12" y2="23" />
+                  </svg>
+                </button>
+              )}
               <button onClick={toggleFullscreen} style={styles.fullscreenBtn} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
                 {isFullscreen ? (
                   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
