@@ -22,6 +22,8 @@ export class BackendStack extends cdk.Stack {
         LANGCHAIN_API_KEY: process.env.LANGCHAIN_API_KEY ?? '',
         LANGCHAIN_TRACING_V2: 'true',
         LANGCHAIN_PROJECT: 'live-session-analysis',
+        LIVEKIT_API_KEY: process.env.LIVEKIT_API_KEY ?? '',
+        LIVEKIT_API_SECRET: process.env.LIVEKIT_API_SECRET ?? '',
         NODE_OPTIONS: '--enable-source-maps',
       },
       bundling: {
