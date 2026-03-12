@@ -35,14 +35,16 @@ export default function StudentOverlays({ metrics }: StudentOverlaysProps) {
         boxShadow: `inset 0 0 0 6px ${borderColor}`,
       }} />
 
-      {/* Engagement pill — bottom-left */}
+      {/* Engagement + Talk pills — bottom-left */}
       <div style={styles.engagementPillWrapper}>
         <Tooltip text="Engagement Score — Blend of eye contact and energy signals">
-          <div style={{
-            ...styles.engagementPill,
-            background: borderColor,
-          }}>
+          <div style={{ ...styles.engagementPill, color: borderColor }}>
             Eng {engPct}%
+          </div>
+        </Tooltip>
+        <Tooltip text="Student Talk — Percentage of session time the student has spoken">
+          <div style={styles.talkPill}>
+            Talk {Math.round(metrics.talkTimePercent * 100)}%
           </div>
         </Tooltip>
       </div>
@@ -71,10 +73,21 @@ const styles: Record<string, React.CSSProperties> = {
     bottom: 12,
     left: 12,
     zIndex: 3,
+    display: 'flex',
+    gap: 6,
   },
   engagementPill: {
     padding: '3px 10px',
     borderRadius: '12px',
+    background: 'rgba(0, 0, 0, 0.7)',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  talkPill: {
+    padding: '3px 10px',
+    borderRadius: '12px',
+    background: 'rgba(0, 0, 0, 0.7)',
     color: '#fff',
     fontSize: '0.75rem',
     fontWeight: 700,

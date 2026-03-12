@@ -33,6 +33,7 @@ export default function Dashboard() {
   const [primaryView, setPrimaryView] = useState<'student' | 'tutor'>('student');
   const videoStageRef = useRef<HTMLDivElement>(null);
   const [myRole, setMyRole] = useState<'tutor' | 'student'>('tutor');
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -52,6 +53,14 @@ export default function Dashboard() {
   const swapPrimaryView = useCallback(() => {
     setPrimaryView(prev => prev === 'student' ? 'tutor' : 'student');
   }, []);
+
+  const toggleMute = useCallback(() => {
+    const stream = myRole === 'tutor' ? tutorStream : studentStream;
+    if (!stream) return;
+    const next = !muted;
+    stream.getAudioTracks().forEach(t => { t.enabled = !next; });
+    setMuted(next);
+  }, [muted, myRole, tutorStream, studentStream]);
 
   const handleJoinRoom = useCallback(async (config: LiveKitSetupConfig) => {
     try {
@@ -273,16 +282,6 @@ export default function Dashboard() {
                   </svg>
                 </button>
               </div>
-              <div style={styles.bottomLeftControls}>
-                <label style={styles.controlToggle}>
-                  <input
-                    type="checkbox"
-                    checked={showMesh}
-                    onChange={(e) => setShowMesh(e.target.checked)}
-                  />
-                  {' '}Show Mesh
-                </label>
-              </div>
               <div style={styles.topRightControls}>
                 {isTutorWebcam && primaryView === 'tutor' && (
                   <button
@@ -307,9 +306,40 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <button onClick={handleStop} style={styles.stopBtn}>
-              Stop Session
-            </button>
+            <div style={styles.belowVideoControls}>
+              <label style={styles.meshToggle}>
+                <input
+                  type="checkbox"
+                  checked={showMesh}
+                  onChange={(e) => setShowMesh(e.target.checked)}
+                />
+                {' '}Show Face Mesh
+              </label>
+              <div style={styles.centerControls}>
+                <button onClick={toggleMute} style={styles.muteBtn} title={muted ? 'Unmute' : 'Mute'}>
+                  {muted ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc3545" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                      <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                      <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.12 1.5-.35 2.18" />
+                      <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+                    </svg>
+                  )}
+                  <span style={{ color: muted ? '#dc3545' : '#fff', fontSize: '0.85rem', fontWeight: 500 }}>
+                    {muted ? 'Unmute' : 'Mute'}
+                  </span>
+                </button>
+                <button onClick={handleStop} style={styles.stopBtn}>
+                  End Session
+                </button>
+              </div>
+            </div>
           </div>
 
           {myRole === 'tutor' && (
@@ -474,11 +504,37 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stopBtn: {
-    display: 'block',
-    margin: '0.5rem auto 0',
+  belowVideoControls: {
+    display: 'flex',
+    alignItems: 'center',
+    padding: '0.5rem 0',
     flexShrink: 0,
-    padding: '0.5rem 2rem',
+  },
+  meshToggle: {
+    fontSize: '0.8rem',
+    color: '#6c757d',
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  },
+  centerControls: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.75rem',
+    flex: 1,
+  },
+  muteBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '0.6rem 1.2rem',
+    background: '#343a40',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+  },
+  stopBtn: {
+    padding: '0.6rem 1.5rem',
     background: '#dc3545',
     color: '#fff',
     border: 'none',
