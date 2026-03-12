@@ -98,10 +98,10 @@ export class VideoPipeline {
         ? extractBlendshapeFeatures(result.blendshapes)
         : extractLandmarkFeatures(result.landmarks);
 
-    const eyeContact = features.eyeOpenness >= 0.5
+    const eyeContact = features.eyeOpenness >= 0.7
       ? rawEyeContact
       : this.lastEyeContact[frame.participant];
-    if (features.eyeOpenness >= 0.5) {
+    if (features.eyeOpenness >= 0.7) {
       this.lastEyeContact[frame.participant] = rawEyeContact;
     }
 
