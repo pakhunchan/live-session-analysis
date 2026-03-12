@@ -1,5 +1,7 @@
 export type ParticipantRole = 'tutor' | 'student';
 
+export type InterruptionCategory = 'student_interrupted' | 'tutor_interrupted' | 'accident';
+
 export interface EnergyBreakdown {
   // Video activity scores (variance-based over history window) — all 0-1
   blinkActivity: number;   // eye openness variability
@@ -33,8 +35,14 @@ export interface ParticipantMetrics {
   energyBreakdown?: EnergyBreakdown;
 }
 
+export interface InterruptionCounts {
+  student: number;
+  tutor: number;
+  accident: number;
+}
+
 export interface SessionMetrics {
-  interruptionCount: number;
+  interruptions: InterruptionCounts;
   currentSilenceDurationMs: number;
   engagementTrend: EngagementTrend;
   sessionElapsedMs: number;
@@ -78,4 +86,6 @@ export interface MetricDataPoint {
   // Pitch tracking
   pitch?: number;             // Hz (null → omitted when unvoiced)
   pitchVariance?: number;     // 0-1
+  // Set by backend relay — server-receipt timestamp for consistent ordering
+  serverTimestamp?: number;
 }
