@@ -48,16 +48,29 @@ function ParticipantTile({ label, metrics, color }: { label: string; metrics: Pa
   const eng = m ? engagementScore(m) : 0;
   const engColor = getEngColor(eng);
 
+  const badges: { text: string; bg: string; fg: string }[] = [];
+  if (m?.isSpeaking) badges.push({ text: 'Speaking', bg: '#d1e7dd', fg: '#0f5132' });
+  if (m && !m.faceDetected) badges.push({ text: 'No Face', bg: '#f8d7da', fg: '#842029' });
+
   return (
     <div style={s.tile}>
-      {/* Header — always visible */}
+      {/* Header — line 1: label + engagement, line 2: status badges */}
       <button style={s.tileHeader} onClick={() => setExpanded(!expanded)}>
-        <div style={{ ...s.dot, background: color }} />
-        <span style={s.tileLabel}>{label}</span>
-        {m?.isSpeaking && <span style={s.speakingBadge}>Speaking</span>}
-        {m && !m.faceDetected && <span style={s.noFaceBadge}>No Face</span>}
-        <span style={{ ...s.engBadge, background: engColor }}>Eng {pct(eng)}</span>
-        <span style={s.chevron}>{expanded ? '▾' : '▸'}</span>
+        <div style={s.tileHeaderInner}>
+          <div style={s.tileHeaderLine1}>
+            <div style={{ ...s.dot, background: color }} />
+            <span style={s.tileLabel}>{label}</span>
+            <span style={{ ...s.engBadge, background: engColor }}>{pct(eng)}</span>
+            <span style={s.chevron}>{expanded ? '▾' : '▸'}</span>
+          </div>
+          {badges.length > 0 && (
+            <div style={s.tileHeaderLine2}>
+              {badges.map((b) => (
+                <span key={b.text} style={{ ...s.statusBadge, background: b.bg, color: b.fg }}>{b.text}</span>
+              ))}
+            </div>
+          )}
+        </div>
       </button>
 
       {/* Expanded body */}
@@ -162,7 +175,7 @@ export default function Sidebar({ snapshot, history, isOpen, onToggle }: Sidebar
   );
 }
 
-const SIDEBAR_WIDTH = 320;
+const SIDEBAR_WIDTH = 360;
 
 const s: Record<string, React.CSSProperties> = {
   sidebar: {
@@ -171,6 +184,7 @@ const s: Record<string, React.CSSProperties> = {
     background: '#f8f9fa',
     borderLeft: '1px solid #dee2e6',
     overflowY: 'auto',
+    scrollbarGutter: 'stable',
     height: '100%',
   },
   inner: {
@@ -202,55 +216,59 @@ const s: Record<string, React.CSSProperties> = {
     boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
   },
   tileHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.4rem',
     width: '100%',
     padding: '0.55rem 0.75rem',
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    fontSize: '0.85rem',
+    fontSize: '1.05rem',
     textAlign: 'left',
   },
+  tileHeaderInner: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '0.3rem',
+    width: '100%',
+  },
+  tileHeaderLine1: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+  },
+  tileHeaderLine2: {
+    display: 'flex',
+    gap: '0.35rem',
+    paddingLeft: 16,
+  },
   dot: {
-    width: 8,
-    height: 8,
+    width: 10,
+    height: 10,
     borderRadius: '50%',
     flexShrink: 0,
   },
   tileLabel: {
     fontWeight: 700,
     color: '#212529',
+    fontSize: '1.5rem',
   },
   engBadge: {
     marginLeft: 'auto',
-    padding: '2px 8px',
+    padding: '2px 10px',
     borderRadius: '10px',
     color: '#fff',
-    fontSize: '0.68rem',
+    fontSize: '0.88rem',
     fontWeight: 700,
     fontVariantNumeric: 'tabular-nums',
   },
   chevron: {
     color: '#adb5bd',
-    fontSize: '0.7rem',
+    fontSize: '0.9rem',
     flexShrink: 0,
   },
-  speakingBadge: {
-    padding: '1px 6px',
+  statusBadge: {
+    padding: '2px 8px',
     borderRadius: '8px',
-    background: '#d1e7dd',
-    color: '#0f5132',
-    fontSize: '0.6rem',
-    fontWeight: 600,
-  },
-  noFaceBadge: {
-    padding: '1px 6px',
-    borderRadius: '8px',
-    background: '#f8d7da',
-    color: '#842029',
-    fontSize: '0.6rem',
+    fontSize: '0.82rem',
     fontWeight: 600,
   },
 
@@ -271,14 +289,14 @@ const s: Record<string, React.CSSProperties> = {
     flex: 1,
   },
   metricBarLabel: {
-    fontSize: '0.75rem',
+    fontSize: '0.95rem',
     color: '#495057',
-    width: 80,
+    width: 100,
     flexShrink: 0,
   },
   metricBarTrack: {
     flex: 1,
-    height: 7,
+    height: 9,
     background: '#e9ecef',
     borderRadius: 4,
     overflow: 'hidden',
@@ -289,9 +307,9 @@ const s: Record<string, React.CSSProperties> = {
     transition: 'width 0.4s ease',
   },
   metricBarValue: {
-    fontSize: '0.75rem',
+    fontSize: '0.95rem',
     fontWeight: 700,
-    width: 34,
+    width: 44,
     textAlign: 'right' as const,
     flexShrink: 0,
     fontVariantNumeric: 'tabular-nums',
@@ -309,12 +327,12 @@ const s: Record<string, React.CSSProperties> = {
     gap: '0.2rem',
   },
   expandHint: {
-    fontSize: '0.6rem',
+    fontSize: '0.8rem',
     color: '#adb5bd',
     flexShrink: 0,
   },
   faceConf: {
-    fontSize: '0.68rem',
+    fontSize: '0.88rem',
     color: '#adb5bd',
     textAlign: 'center' as const,
     marginTop: '0.15rem',
@@ -335,7 +353,7 @@ const s: Record<string, React.CSSProperties> = {
     flex: 1,
   },
   breakdownColTitle: {
-    fontSize: '0.58rem',
+    fontSize: '0.78rem',
     fontWeight: 700,
     color: '#868e96',
     marginBottom: '0.15rem',
@@ -349,14 +367,14 @@ const s: Record<string, React.CSSProperties> = {
     marginBottom: 2,
   },
   bLabel: {
-    fontSize: '0.56rem',
+    fontSize: '0.78rem',
     color: '#495057',
-    width: 42,
+    width: 60,
     flexShrink: 0,
   },
   bBarBg: {
     flex: 1,
-    height: 4,
+    height: 5,
     background: '#e9ecef',
     borderRadius: 2,
     overflow: 'hidden',
@@ -368,15 +386,15 @@ const s: Record<string, React.CSSProperties> = {
     transition: 'width 0.3s',
   },
   bValue: {
-    fontSize: '0.56rem',
+    fontSize: '0.78rem',
     color: '#495057',
-    width: 24,
+    width: 34,
     textAlign: 'right' as const,
     flexShrink: 0,
     fontVariantNumeric: 'tabular-nums',
   },
   breakdownSub: {
-    fontSize: '0.58rem',
+    fontSize: '0.78rem',
     fontWeight: 600,
     color: '#495057',
     marginTop: 2,
@@ -397,7 +415,7 @@ const s: Record<string, React.CSSProperties> = {
     boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
   },
   timelineTitle: {
-    fontSize: '0.7rem',
+    fontSize: '0.9rem',
     fontWeight: 700,
     color: '#495057',
     textTransform: 'uppercase' as const,
