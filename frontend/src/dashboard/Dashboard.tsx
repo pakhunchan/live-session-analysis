@@ -256,9 +256,8 @@ export default function Dashboard() {
                     title={mirrorTutor ? 'Unmirror' : 'Mirror'}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={mirrorTutor ? '#60a5fa' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3" />
-                      <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
-                      <line x1="12" y1="1" x2="12" y2="23" />
+                      <polyline points="18 8 22 8 22 8" /><polyline points="18 5 22 8 18 11" /><line x1="2" y1="8" x2="22" y2="8" />
+                      <polyline points="6 19 2 16 6 13" /><line x1="2" y1="16" x2="22" y2="16" />
                     </svg>
                   </button>
                 )}
@@ -268,10 +267,9 @@ export default function Dashboard() {
                   title="Swap to main view"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="17 1 21 5 17 9" />
-                    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-                    <polyline points="7 23 3 19 7 15" />
-                    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                    <line x1="12" y1="17" x2="12" y2="22" />
+                    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h-6v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                   </svg>
                 </button>
               </div>
@@ -285,36 +283,28 @@ export default function Dashboard() {
                   {' '}Show Mesh
                 </label>
               </div>
-              {isTutorWebcam && primaryView === 'tutor' && (
-                <button
-                  onClick={() => setMirrorTutor(m => !m)}
-                  style={{ ...styles.fullscreenBtn, right: 56 }}
-                  title={mirrorTutor ? 'Unmirror' : 'Mirror'}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={mirrorTutor ? '#60a5fa' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3" />
-                    <path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3" />
-                    <line x1="12" y1="1" x2="12" y2="23" />
+              <div style={styles.topRightControls}>
+                {isTutorWebcam && primaryView === 'tutor' && (
+                  <button
+                    onClick={() => setMirrorTutor(m => !m)}
+                    style={styles.topRightBtn}
+                    title={mirrorTutor ? 'Unmirror' : 'Mirror'}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={mirrorTutor ? '#60a5fa' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="18 8 22 8 22 8" /><polyline points="18 5 22 8 18 11" /><line x1="2" y1="8" x2="22" y2="8" />
+                      <polyline points="6 19 2 16 6 13" /><line x1="2" y1="16" x2="22" y2="16" />
+                    </svg>
+                  </button>
+                )}
+                <button onClick={toggleFullscreen} style={styles.topRightBtn} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 3 3 3 3 9" />
+                    <polyline points="15 21 21 21 21 15" />
+                    <polyline points="9 21 3 21 3 15" />
                   </svg>
                 </button>
-              )}
-              <button onClick={toggleFullscreen} style={styles.fullscreenBtn} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
-                {isFullscreen ? (
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="4 14 10 14 10 20" />
-                    <polyline points="20 10 14 10 14 4" />
-                    <line x1="14" y1="10" x2="21" y2="3" />
-                    <line x1="3" y1="21" x2="10" y2="14" />
-                  </svg>
-                ) : (
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <polyline points="15 3 21 3 21 9" />
-                    <polyline points="9 21 3 21 3 15" />
-                    <line x1="21" y1="3" x2="14" y2="10" />
-                    <line x1="3" y1="21" x2="10" y2="14" />
-                  </svg>
-                )}
-              </button>
+              </div>
             </div>
 
             <button onClick={handleStop} style={styles.stopBtn}>
@@ -425,6 +415,7 @@ const styles: Record<string, React.CSSProperties> = {
     bottom: 12,
     right: 12,
     width: 200,
+    aspectRatio: '4 / 3',
     borderRadius: '8px',
     overflow: 'hidden',
     boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
@@ -447,16 +438,21 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '4px 8px',
     borderRadius: '4px',
   },
-  fullscreenBtn: {
+  topRightControls: {
     position: 'absolute',
     top: 8,
     right: 8,
+    display: 'flex',
+    gap: 6,
+    zIndex: 3,
+  },
+  topRightBtn: {
     background: 'rgba(0,0,0,0.5)',
     border: 'none',
     borderRadius: '6px',
-    padding: '10px 12px',
+    width: 40,
+    height: 40,
     cursor: 'pointer',
-    zIndex: 3,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
