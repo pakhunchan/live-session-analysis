@@ -7,6 +7,7 @@ import type {
   EngagementTrend,
   EnergyBreakdown,
 } from '../types';
+import { engagementScore } from './engagement';
 
 export interface MetricsEngineConfig {
   sessionId: string;
@@ -142,11 +143,9 @@ export function computeTrend(
   const window = recentSnapshots.slice(-windowSize);
   if (window.length < 2) return 'stable';
 
-  // Average engagement = mean of both participants' energy + eye contact
+  // Average engagement via shared engagementScore formula
   const scores = window.map((s) => {
-    const tutorEng = (s.tutor.eyeContactScore + s.tutor.energyScore) / 2;
-    const studentEng = (s.student.eyeContactScore + s.student.energyScore) / 2;
-    return (tutorEng + studentEng) / 2;
+    return (engagementScore(s.tutor) + engagementScore(s.student)) / 2;
   });
 
   // Simple linear regression slope
