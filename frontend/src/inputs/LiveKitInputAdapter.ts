@@ -2,6 +2,7 @@ import {
   Room,
   RoomEvent,
   Track,
+  VideoPresets,
   LocalVideoTrack,
   LocalAudioTrack,
   createLocalTracks,
@@ -41,8 +42,8 @@ export class LiveKitInputAdapter implements InputAdapter {
 
   async initialize(): Promise<void> {
     const roomOptions: RoomOptions = {
-      adaptiveStream: true,
-      dynacast: true,
+      adaptiveStream: false,
+      dynacast: false,
     };
 
     this.room = new Room(roomOptions);
@@ -88,7 +89,7 @@ export class LiveKitInputAdapter implements InputAdapter {
       );
     } else {
       tracks = await createLocalTracks({
-        video: { resolution: { width: 1280, height: 720, frameRate: 30 } },
+        video: { resolution: { width: 1920, height: 1080, frameRate: 30 } },
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -99,7 +100,12 @@ export class LiveKitInputAdapter implements InputAdapter {
 
     this.localStream = new MediaStream();
     for (const track of tracks) {
-      await this.room!.localParticipant.publishTrack(track);
+      await this.room!.localParticipant.publishTrack(track, {
+        simulcast: false,
+        videoEncoding: track instanceof LocalVideoTrack
+          ? VideoPresets.h1080.encoding
+          : undefined,
+      });
       this.localStream.addTrack(track.mediaStreamTrack);
     }
 
