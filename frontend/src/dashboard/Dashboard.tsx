@@ -67,12 +67,13 @@ export default function Dashboard() {
 
       // Fetch token from backend
       const baseUrl = API_BASE || '';
+      const participantId = `${config.role}-${Math.random().toString(36).slice(2, 8)}`;
       const res = await fetch(`${baseUrl}/api/livekit-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomName: config.roomName,
-          participantName: config.role,
+          participantName: participantId,
           role: config.role,
         }),
       });
