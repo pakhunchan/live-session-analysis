@@ -7,28 +7,32 @@ import SessionSetup from './SessionSetup';
 import Sidebar from './Sidebar';
 import NudgeChips from './NudgeChips';
 import PostSessionSummary from './PostSessionSummary';
-import { SessionOrchestrator } from '../core/SessionOrchestrator';
+import { LiveKitSessionOrchestrator } from '../core/LiveKitSessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
 import { generateSessionSummary } from '../core/generateSessionSummary';
 import { fetchRecommendations, generateFallbackRecommendations } from '../core/openaiRecommendations';
-import type { SessionSetupConfig, InputSourceType, SessionSummary } from '../types/session';
+import type { LiveKitSetupConfig, InputSourceType, SessionSummary } from '../types/session';
+
+const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
+const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
 export default function Dashboard() {
-  const { snapshot, history, nudges, isRunning, start, stop, resetHistory, eventBus, streamManager } = useMetricsEngine();
+  const { snapshot, history, nudges, isRunning, start, stop, resetHistory, startVadForStream, eventBus, streamManager } = useMetricsEngine();
   const [status, setStatus] = useState('Ready');
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tutorStream, setTutorStream] = useState<MediaStream | null>(null);
   const [studentStream, setStudentStream] = useState<MediaStream | null>(null);
   const [showMesh, setShowMesh] = useState(false);
-  const [tutorSource, setTutorSource] = useState<InputSourceType>('webcam');
+  const [inputSource, setInputSource] = useState<InputSourceType>('webcam');
   const [mirrorTutor, setMirrorTutor] = useState(true);
-  const orchestratorRef = useRef<SessionOrchestrator | null>(null);
+  const orchestratorRef = useRef<LiveKitSessionOrchestrator | null>(null);
   const [setupLoading, setSetupLoading] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [primaryView, setPrimaryView] = useState<'student' | 'tutor'>('student');
   const videoStageRef = useRef<HTMLDivElement>(null);
+  const [myRole, setMyRole] = useState<'tutor' | 'student'>('tutor');
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -49,33 +53,87 @@ export default function Dashboard() {
     setPrimaryView(prev => prev === 'student' ? 'tutor' : 'student');
   }, []);
 
-  const handleSessionStart = useCallback(async (config: SessionSetupConfig) => {
+  const handleJoinRoom = useCallback(async (config: LiveKitSetupConfig) => {
     try {
       setError(null);
       setSetupLoading(true);
-      setStatus('Initializing streams...');
+      setMyRole(config.role);
+      setInputSource(config.inputSource);
+      setStatus('Fetching token...');
 
-      const orchestrator = new SessionOrchestrator();
+      if (!LIVEKIT_URL) {
+        throw new Error('VITE_LIVEKIT_URL is not configured');
+      }
+
+      // Fetch token from backend
+      const baseUrl = API_BASE || '';
+      const res = await fetch(`${baseUrl}/api/livekit-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          roomName: config.roomName,
+          participantName: config.role,
+          role: config.role,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: 'Token request failed' }));
+        throw new Error(body.error || `Token request failed (${res.status})`);
+      }
+
+      const { token } = await res.json();
+
+      setStatus('Connecting to room...');
+
+      const orchestrator = new LiveKitSessionOrchestrator();
       orchestratorRef.current = orchestrator;
 
-      const { streams } = await orchestrator.initialize(config, streamManager);
-      setTutorSource(config.tutor.source);
-      setTutorStream(streams.tutor);
-      setStudentStream(streams.student);
+      const { localStream, onRemoteReady } = await orchestrator.initialize(
+        { ...config, url: LIVEKIT_URL, token },
+        streamManager,
+      );
 
+      // Set local stream immediately
+      if (config.role === 'tutor') {
+        setTutorStream(localStream);
+      } else {
+        setStudentStream(localStream);
+      }
+
+      // Initialize ML detector and start pipeline
       const detector = new MediaPipeFaceDetector();
       setStatus('Loading MediaPipe model...');
       await detector.initialize();
 
       await start(detector);
-      setStatus('Running');
+      setStatus('Waiting for other participant...');
+
+      // When remote participant joins, update state
+      onRemoteReady.then(async () => {
+        const otherRole = config.role === 'tutor' ? 'student' : 'tutor';
+        const remoteStream = streamManager.getStream(otherRole);
+
+        if (config.role === 'tutor') {
+          setStudentStream(remoteStream);
+        } else {
+          setTutorStream(remoteStream);
+        }
+
+        // Start VAD for the remote stream
+        if (remoteStream) {
+          await startVadForStream(otherRole, remoteStream);
+        }
+
+        setStatus('Running');
+      });
     } catch (err) {
       setError((err as Error).message);
       setStatus('Error');
     } finally {
       setSetupLoading(false);
     }
-  }, [start, streamManager]);
+  }, [start, startVadForStream, streamManager]);
 
   const handleStop = useCallback(() => {
     stop();
@@ -100,6 +158,8 @@ export default function Dashboard() {
     setStatus('Stopped');
   }, [stop, history, nudges]);
 
+  const isTutorWebcam = myRole === 'tutor' && inputSource === 'webcam';
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
@@ -116,7 +176,7 @@ export default function Dashboard() {
       {error && <div style={styles.errorBanner}>{error}</div>}
 
       {!isRunning && !sessionSummary && (
-        <SessionSetup onStart={handleSessionStart} isLoading={setupLoading} />
+        <SessionSetup onStart={handleJoinRoom} isLoading={setupLoading} />
       )}
 
       {!isRunning && sessionSummary && (
@@ -141,12 +201,21 @@ export default function Dashboard() {
               }}
             >
               <NudgeChips bus={eventBus} />
+
+              {/* Waiting overlay */}
+              {status === 'Waiting for other participant...' && (
+                <div style={styles.waitingOverlay}>
+                  <p style={styles.waitingText}>Waiting for other participant to join...</p>
+                  <p style={styles.waitingHint}>Share the room name with them</p>
+                </div>
+              )}
+
               {/* Main (big) video */}
               <VideoPreview
                 stream={primaryView === 'student' ? studentStream : tutorStream}
                 label=""
                 showMesh={showMesh}
-                mirrored={primaryView === 'tutor' && tutorSource === 'webcam' && mirrorTutor}
+                mirrored={primaryView === 'tutor' && isTutorWebcam && mirrorTutor}
               />
               {primaryView === 'student' && <StudentOverlays metrics={snapshot?.student ?? null} />}
               <PersistentMetrics student={snapshot?.student ?? null} />
@@ -156,7 +225,7 @@ export default function Dashboard() {
                   stream={primaryView === 'student' ? tutorStream : studentStream}
                   label={primaryView === 'student' ? 'You' : 'Student'}
                   showMesh={showMesh}
-                  mirrored={primaryView === 'student' && tutorSource === 'webcam' && mirrorTutor}
+                  mirrored={primaryView === 'student' && isTutorWebcam && mirrorTutor}
                 />
                 {primaryView === 'tutor' && <StudentOverlays metrics={snapshot?.student ?? null} />}
                 <button
@@ -181,7 +250,7 @@ export default function Dashboard() {
                   />
                   {' '}Show Mesh
                 </label>
-                {tutorSource === 'webcam' && (
+                {isTutorWebcam && (
                   <label style={styles.controlToggle}>
                     <input
                       type="checkbox"
@@ -286,6 +355,31 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '8px',
     overflow: 'hidden',
     background: '#000',
+  },
+  waitingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(0,0,0,0.6)',
+    zIndex: 5,
+    pointerEvents: 'none',
+  },
+  waitingText: {
+    color: '#fff',
+    fontSize: '1.1rem',
+    fontWeight: 600,
+    margin: 0,
+  },
+  waitingHint: {
+    color: '#adb5bd',
+    fontSize: '0.85rem',
+    margin: '0.5rem 0 0',
   },
   miniOverlay: {
     position: 'absolute',

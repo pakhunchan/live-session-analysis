@@ -1,151 +1,174 @@
 import React, { useState, useCallback, useRef } from 'react';
-import type { SessionSetupConfig, InputSourceType } from '../types/session';
+import type { LiveKitSetupConfig, InputSourceType } from '../types/session';
+import type { ParticipantRole } from '../types/metrics';
 
 interface SessionSetupProps {
-  onStart: (config: SessionSetupConfig) => void;
+  onStart: (config: LiveKitSetupConfig) => void;
   isLoading: boolean;
 }
 
+function generateRoomName(): string {
+  const adjectives = ['bright', 'calm', 'eager', 'gentle', 'keen', 'lively', 'quick', 'sharp', 'warm', 'bold'];
+  const nouns = ['oak', 'pine', 'lake', 'mesa', 'reef', 'dune', 'peak', 'vale', 'cove', 'glen'];
+  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  const num = Math.floor(Math.random() * 1000);
+  return `${adj}-${noun}-${num}`;
+}
+
 export default function SessionSetup({ onStart, isLoading }: SessionSetupProps) {
-  const [tutorSource, setTutorSource] = useState<InputSourceType>('webcam');
-  const [studentSource, setStudentSource] = useState<InputSourceType>('file');
-  const [tutorFile, setTutorFile] = useState<File | null>(null);
-  const [studentFile, setStudentFile] = useState<File | null>(null);
-  const [playAudio, setPlayAudio] = useState(true);
-  const [dragging, setDragging] = useState<'tutor' | 'student' | null>(null);
-  const tutorFileRef = useRef<HTMLInputElement>(null);
-  const studentFileRef = useRef<HTMLInputElement>(null);
+  const [role, setRole] = useState<ParticipantRole>('tutor');
+  const [inputSource, setInputSource] = useState<InputSourceType>('webcam');
+  const [file, setFile] = useState<File | null>(null);
+  const [roomName, setRoomName] = useState(generateRoomName);
+  const [dragging, setDragging] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const handleStart = useCallback(() => {
-    const config: SessionSetupConfig = {
-      tutor: {
-        source: tutorSource,
-        ...(tutorSource === 'file' ? { file: tutorFile!, playAudio } : {}),
-      },
-      student: {
-        source: studentSource,
-        ...(studentSource === 'file' ? { file: studentFile! } : {}),
-      },
+    const config: LiveKitSetupConfig = {
+      role,
+      inputSource,
+      roomName,
+      ...(inputSource === 'file' ? { file: file! } : {}),
     };
     onStart(config);
-  }, [tutorSource, studentSource, tutorFile, studentFile, playAudio, onStart]);
+  }, [role, inputSource, file, roomName, onStart]);
 
   const canStart =
     !isLoading &&
-    (tutorSource === 'webcam' || tutorFile !== null) &&
-    (studentSource === 'webcam' || studentFile !== null);
+    roomName.trim().length > 0 &&
+    (inputSource === 'webcam' || file !== null);
 
-  const handleDrop = useCallback((role: 'tutor' | 'student', e: React.DragEvent) => {
+  const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    setDragging(null);
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('video/')) {
-      if (role === 'tutor') {
-        setTutorFile(file);
-        setTutorSource('file');
-      } else {
-        setStudentFile(file);
-        setStudentSource('file');
-      }
+    setDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) {
+      setFile(f);
+      setInputSource('file');
     }
   }, []);
 
-  const renderSourceColumn = (
-    role: 'tutor' | 'student',
-    label: string,
-    source: InputSourceType,
-    setSource: (s: InputSourceType) => void,
-    file: File | null,
-    setFile: (f: File | null) => void,
-    fileRef: React.RefObject<HTMLInputElement>,
-  ) => (
-    <div style={styles.column}>
-      <h3 style={styles.columnTitle}>{label} Source</h3>
-      <label style={styles.radioLabel}>
-        <input
-          type="radio"
-          name={`${role}-source`}
-          checked={source === 'file'}
-          onChange={() => setSource('file')}
-          disabled={isLoading}
-        />
-        <span style={styles.radioText}>Video File</span>
-      </label>
-      <label style={styles.radioLabel}>
-        <input
-          type="radio"
-          name={`${role}-source`}
-          checked={source === 'webcam'}
-          onChange={() => setSource('webcam')}
-          disabled={isLoading}
-        />
-        <span style={styles.radioText}>Webcam</span>
-      </label>
-
-      {source === 'file' && (
-        <div
-          onDrop={(e) => handleDrop(role, e)}
-          onDragOver={(e) => { e.preventDefault(); setDragging(role); }}
-          onDragLeave={() => setDragging(null)}
-          style={{
-            ...styles.dropArea,
-            ...(dragging === role ? styles.dropAreaActive : {}),
-          }}
-        >
-          {file ? (
-            <p style={styles.fileName}>{file.name}</p>
-          ) : (
-            <p style={styles.dropHint}>Drop video here</p>
-          )}
-          <button
-            onClick={() => fileRef.current?.click()}
-            style={styles.browseBtn}
-            disabled={isLoading}
-          >
-            Browse
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="video/*"
-            style={{ display: 'none' }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) setFile(f);
-            }}
-          />
-        </div>
-      )}
-
-      {source === 'webcam' && (
-        <div style={styles.webcamReady}>
-          Camera will activate on start
-        </div>
-      )}
-    </div>
-  );
-
   return (
     <div style={styles.container}>
-      <h2 style={styles.heading}>Session Setup</h2>
-      <div style={styles.columns}>
-        {renderSourceColumn('tutor', 'Tutor', tutorSource, setTutorSource, tutorFile, setTutorFile, tutorFileRef)}
-        {renderSourceColumn('student', 'Student', studentSource, setStudentSource, studentFile, setStudentFile, studentFileRef)}
+      <h2 style={styles.heading}>Join Session</h2>
+
+      {/* Role selector */}
+      <div style={styles.section}>
+        <label style={styles.sectionLabel}>I am the...</label>
+        <div style={styles.radioGroup}>
+          <label style={styles.radioLabel}>
+            <input
+              type="radio"
+              name="role"
+              checked={role === 'tutor'}
+              onChange={() => setRole('tutor')}
+              disabled={isLoading}
+            />
+            <span style={styles.radioText}>Tutor</span>
+          </label>
+          <label style={styles.radioLabel}>
+            <input
+              type="radio"
+              name="role"
+              checked={role === 'student'}
+              onChange={() => setRole('student')}
+              disabled={isLoading}
+            />
+            <span style={styles.radioText}>Student</span>
+          </label>
+        </div>
       </div>
 
-      {(tutorSource === 'file' || studentSource === 'file') && (
-        <label style={styles.audioToggle}>
+      {/* Room name */}
+      <div style={styles.section}>
+        <label style={styles.sectionLabel}>Room Name</label>
+        <div style={styles.roomRow}>
           <input
-            type="checkbox"
-            checked={playAudio}
-            onChange={(e) => setPlayAudio(e.target.checked)}
+            type="text"
+            value={roomName}
+            onChange={(e) => setRoomName(e.target.value)}
+            style={styles.roomInput}
             disabled={isLoading}
+            placeholder="Enter room name"
           />
-          <span style={styles.audioToggleText}>
-            Play file audio through speakers (headphones recommended)
-          </span>
-        </label>
-      )}
+          <button
+            onClick={() => setRoomName(generateRoomName())}
+            style={styles.randomBtn}
+            disabled={isLoading}
+          >
+            Random
+          </button>
+        </div>
+      </div>
+
+      {/* Input source */}
+      <div style={styles.section}>
+        <label style={styles.sectionLabel}>Video Source</label>
+        <div style={styles.radioGroup}>
+          <label style={styles.radioLabel}>
+            <input
+              type="radio"
+              name="input-source"
+              checked={inputSource === 'webcam'}
+              onChange={() => setInputSource('webcam')}
+              disabled={isLoading}
+            />
+            <span style={styles.radioText}>Webcam</span>
+          </label>
+          <label style={styles.radioLabel}>
+            <input
+              type="radio"
+              name="input-source"
+              checked={inputSource === 'file'}
+              onChange={() => setInputSource('file')}
+              disabled={isLoading}
+            />
+            <span style={styles.radioText}>Video File</span>
+          </label>
+        </div>
+
+        {inputSource === 'file' && (
+          <div
+            onDrop={handleDrop}
+            onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+            onDragLeave={() => setDragging(false)}
+            style={{
+              ...styles.dropArea,
+              ...(dragging ? styles.dropAreaActive : {}),
+            }}
+          >
+            {file ? (
+              <p style={styles.fileName}>{file.name}</p>
+            ) : (
+              <p style={styles.dropHint}>Drop video here</p>
+            )}
+            <button
+              onClick={() => fileRef.current?.click()}
+              style={styles.browseBtn}
+              disabled={isLoading}
+            >
+              Browse
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="video/*"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) setFile(f);
+              }}
+            />
+          </div>
+        )}
+
+        {inputSource === 'webcam' && (
+          <div style={styles.webcamReady}>
+            Camera will activate on join
+          </div>
+        )}
+      </div>
 
       <button
         onClick={handleStart}
@@ -155,7 +178,7 @@ export default function SessionSetup({ onStart, isLoading }: SessionSetupProps) 
           ...(!canStart ? styles.startBtnDisabled : {}),
         }}
       >
-        {isLoading ? 'Starting...' : 'Start Session'}
+        {isLoading ? 'Joining...' : 'Join Room'}
       </button>
     </div>
   );
@@ -167,6 +190,8 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '12px',
     padding: '2rem',
     background: '#f8f9fa',
+    maxWidth: 480,
+    margin: '0 auto',
   },
   heading: {
     margin: '0 0 1.5rem',
@@ -174,21 +199,19 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     textAlign: 'center',
   },
-  columns: {
-    display: 'flex',
-    gap: '2rem',
+  section: {
+    marginBottom: '1.25rem',
   },
-  column: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-  },
-  columnTitle: {
-    margin: '0 0 0.5rem',
-    fontSize: '1rem',
+  sectionLabel: {
+    display: 'block',
+    fontSize: '0.9rem',
     fontWeight: 600,
     color: '#495057',
+    marginBottom: '0.5rem',
+  },
+  radioGroup: {
+    display: 'flex',
+    gap: '1.5rem',
   },
   radioLabel: {
     display: 'flex',
@@ -199,6 +222,26 @@ const styles: Record<string, React.CSSProperties> = {
   },
   radioText: {
     color: '#212529',
+  },
+  roomRow: {
+    display: 'flex',
+    gap: '0.5rem',
+  },
+  roomInput: {
+    flex: 1,
+    padding: '0.5rem 0.75rem',
+    border: '1px solid #ced4da',
+    borderRadius: '6px',
+    fontSize: '0.9rem',
+  },
+  randomBtn: {
+    padding: '0.5rem 1rem',
+    background: '#e9ecef',
+    border: '1px solid #ced4da',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '0.8rem',
+    whiteSpace: 'nowrap',
   },
   dropArea: {
     marginTop: '0.5rem',
@@ -241,17 +284,6 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#0f5132',
     textAlign: 'center',
     fontSize: '0.85rem',
-  },
-  audioToggle: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '0.5rem',
-    marginTop: '1.5rem',
-    cursor: 'pointer',
-  },
-  audioToggleText: {
-    fontSize: '0.85rem',
-    color: '#495057',
   },
   startBtn: {
     display: 'block',

@@ -1,4 +1,4 @@
-import type { MetricSnapshot, ParticipantMetrics } from './metrics';
+import type { MetricSnapshot, ParticipantMetrics, ParticipantRole } from './metrics';
 import type { Nudge } from './coaching';
 
 export type InputSourceType = 'file' | 'webcam';
@@ -12,6 +12,13 @@ export interface ParticipantInputConfig {
 export interface SessionSetupConfig {
   tutor: ParticipantInputConfig;
   student: ParticipantInputConfig;
+}
+
+export interface LiveKitSetupConfig {
+  role: ParticipantRole;
+  inputSource: InputSourceType;
+  file?: File;
+  roomName: string;
 }
 
 export interface SessionConfig {
