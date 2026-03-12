@@ -48,6 +48,8 @@ export class VideoPipeline {
     student: [],
   };
 
+  private lastEyeContact: Record<ParticipantRole, number> = { tutor: 0, student: 0 };
+
   private static readonly GAZE_HISTORY_SIZE = 100;
 
   private totalFrames = 0;
@@ -87,13 +89,21 @@ export class VideoPipeline {
 
     // Eye contact
     const gaze = estimateGaze(result.landmarks);
-    const eyeContact = classifyEyeContact(gaze);
+    // During blinks, iris landmarks are unreliable — hold the last open-eye value
+    const rawEyeContact = classifyEyeContact(gaze);
 
     // Expression features
     const features: ExpressionFeatures =
       result.blendshapes && result.blendshapes.length > 0
         ? extractBlendshapeFeatures(result.blendshapes)
         : extractLandmarkFeatures(result.landmarks);
+
+    const eyeContact = features.eyeOpenness >= 0.5
+      ? rawEyeContact
+      : this.lastEyeContact[frame.participant];
+    if (features.eyeOpenness >= 0.5) {
+      this.lastEyeContact[frame.participant] = rawEyeContact;
+    }
 
     // Update expression history
     const history = this.expressionHistory[frame.participant];
