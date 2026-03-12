@@ -68,6 +68,9 @@ export class StreamManager {
   private setupAudio(participant: ParticipantRole, stream: MediaStream): void {
     const ps = this.streams[participant];
 
+    // Skip audio setup if stream has no audio tracks
+    if (typeof stream.getAudioTracks === 'function' && stream.getAudioTracks().length === 0) return;
+
     if (this.audioContextFactory) {
       ps.audioContext = this.audioContextFactory(stream);
       const analyser = ps.audioContext.createAnalyser();

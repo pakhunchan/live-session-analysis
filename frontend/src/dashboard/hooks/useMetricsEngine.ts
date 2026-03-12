@@ -18,6 +18,7 @@ export interface UseMetricsEngineReturn {
   start: (detector: IFaceDetector) => Promise<void>;
   stop: () => void;
   resetHistory: () => void;
+  startVadForStream: (role: 'tutor' | 'student', stream: MediaStream) => Promise<void>;
   eventBus: EventBus;
   streamManager: StreamManager;
 }
@@ -132,6 +133,16 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     });
   }, [sessionId]);
 
+  const startVadForStream = useCallback(async (role: 'tutor' | 'student', stream: MediaStream) => {
+    const vadManager = vadManagerRef.current;
+    if (!vadManager) return;
+    try {
+      await vadManager.startForParticipant(role, stream);
+    } catch (err) {
+      console.warn(`[VadManager] Failed to start VAD for ${role}:`, err);
+    }
+  }, []);
+
   const stop = useCallback(() => {
     nudgeEngineRef.current?.stop();
     metricsEngineRef.current?.stop();
@@ -155,6 +166,7 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     start,
     stop,
     resetHistory,
+    startVadForStream,
     eventBus: eventBusRef.current,
     streamManager: streamManagerRef.current,
   };
