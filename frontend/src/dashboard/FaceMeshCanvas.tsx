@@ -167,21 +167,35 @@ export default function FaceMeshCanvas({ videoRef, mirrored }: FaceMeshCanvasPro
         lastDetectTime = now;
 
         const result = landmarker.detectForVideo(video, now);
-        const w = canvas.width;
-        const h = canvas.height;
-        ctx.clearRect(0, 0, w, h);
+        const cw = canvas.width;
+        const ch = canvas.height;
+        ctx.clearRect(0, 0, cw, ch);
 
         if (result.faceLandmarks && result.faceLandmarks.length > 0) {
           const lm = result.faceLandmarks[0];
 
-          function draw(conns: [number, number][], color: string, width: number) {
+          // Compute content rect for object-fit: contain
+          const videoAR = video.videoWidth / video.videoHeight;
+          const canvasAR = cw / ch;
+          let ox = 0, oy = 0, w = cw, h = ch;
+          if (videoAR > canvasAR) {
+            // Video wider — bars top/bottom
+            h = cw / videoAR;
+            oy = (ch - h) / 2;
+          } else {
+            // Video taller — bars left/right
+            w = ch * videoAR;
+            ox = (cw - w) / 2;
+          }
+
+          function draw(conns: [number, number][], color: string, lineWidth: number) {
             ctx!.strokeStyle = color;
-            ctx!.lineWidth = width;
+            ctx!.lineWidth = lineWidth;
             ctx!.beginPath();
             for (const [a, b] of conns) {
               if (a < lm.length && b < lm.length) {
-                ctx!.moveTo(lm[a].x * w, lm[a].y * h);
-                ctx!.lineTo(lm[b].x * w, lm[b].y * h);
+                ctx!.moveTo(ox + lm[a].x * w, oy + lm[a].y * h);
+                ctx!.lineTo(ox + lm[b].x * w, oy + lm[b].y * h);
               }
             }
             ctx!.stroke();
@@ -213,7 +227,7 @@ export default function FaceMeshCanvas({ videoRef, mirrored }: FaceMeshCanvasPro
           for (const idx of PIPELINE_LANDMARKS) {
             if (idx < lm.length) {
               ctx.beginPath();
-              ctx.arc(lm[idx].x * w, lm[idx].y * h, 3, 0, Math.PI * 2);
+              ctx.arc(ox + lm[idx].x * w, oy + lm[idx].y * h, 3, 0, Math.PI * 2);
               ctx.fill();
             }
           }
