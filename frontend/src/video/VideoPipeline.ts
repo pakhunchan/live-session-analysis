@@ -98,13 +98,6 @@ export class VideoPipeline {
         ? extractBlendshapeFeatures(result.blendshapes)
         : extractLandmarkFeatures(result.landmarks);
 
-    const eyeContact = features.eyeOpenness >= 0.7
-      ? rawEyeContact
-      : this.lastEyeContact[frame.participant];
-    if (features.eyeOpenness >= 0.7) {
-      this.lastEyeContact[frame.participant] = rawEyeContact;
-    }
-
     // Update expression history
     const history = this.expressionHistory[frame.participant];
     history.push(features);
@@ -147,6 +140,16 @@ export class VideoPipeline {
     }
 
     const exprResult = computeExpressionEnergy(features, history, undefined, pitchHist);
+
+    // Hold eye contact during blinks: gate on both instantaneous eyeOpenness
+    // and blinkActivity (variance-based — high means rapid blinking in recent window)
+    const eyesReliable = features.eyeOpenness >= 0.7 && exprResult.blinkActivity < 0.25;
+    const eyeContact = eyesReliable
+      ? rawEyeContact
+      : this.lastEyeContact[frame.participant];
+    if (eyesReliable) {
+      this.lastEyeContact[frame.participant] = rawEyeContact;
+    }
 
     const dp: MetricDataPoint = {
       source: 'video',
