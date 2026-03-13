@@ -1,10 +1,10 @@
-FROM node:20-slim AS build
+FROM --platform=linux/amd64 node:20-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
 
-FROM node:20-slim
+FROM --platform=linux/amd64 node:20-slim
 WORKDIR /app
 COPY --from=build /app /app
 EXPOSE 3001

@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://br0eufx394.execute-api.us-west-2.amazonaws.com/api/:path*"
+      "destination": "http://LiveSe-Servi-QipAb0OQKBIb-2082207685.us-west-2.elb.amazonaws.com/api/:path*"
     }
   ]
 }
