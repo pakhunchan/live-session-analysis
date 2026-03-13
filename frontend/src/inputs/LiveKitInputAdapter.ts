@@ -30,6 +30,7 @@ export class LiveKitInputAdapter implements InputAdapter {
   private localVideoElement: HTMLVideoElement | null = null;
   private remoteStream: MediaStream | null = null;
   private remoteVideoElement: HTMLVideoElement | null = null;
+  private remoteAudioElements: HTMLMediaElement[] = [];
   private fileVideoElement: HTMLVideoElement | null = null;
   private fileObjectUrl: string | null = null;
   private ready = false;
@@ -58,11 +59,12 @@ export class LiveKitInputAdapter implements InputAdapter {
     this.room.on(
       RoomEvent.ParticipantDisconnected,
       () => {
-        // Clean up remote stream when participant leaves
+        // Clean up remote stream and audio elements when participant leaves
         this.remoteStream = null;
         if (this.remoteVideoElement) {
           this.remoteVideoElement.srcObject = null;
         }
+        this.detachRemoteAudio();
       },
     );
 
@@ -178,8 +180,16 @@ export class LiveKitInputAdapter implements InputAdapter {
     }
     this.remoteStream.addTrack(mediaTrack);
 
+    // Audio tracks: use LiveKit's attach() to create a playback element.
+    // Video elements are muted (for autoplay policy), so audio must be
+    // played via a separate element.
+    if (mediaTrack.kind === 'audio') {
+      const audioEl = track.attach();
+      this.remoteAudioElements.push(audioEl);
+    }
+
     // Create or update the remote video element (used for face detection only;
-    // audio playback is handled by LiveKit, display by VideoPreview component).
+    // display is handled by VideoPreview, audio by attach() above).
     // Must be muted so autoplay works reliably per browser autoplay policies.
     if (!this.remoteVideoElement) {
       this.remoteVideoElement = document.createElement('video');
@@ -222,6 +232,14 @@ export class LiveKitInputAdapter implements InputAdapter {
     return this.ready;
   }
 
+  private detachRemoteAudio(): void {
+    for (const el of this.remoteAudioElements) {
+      el.pause();
+      el.remove();
+    }
+    this.remoteAudioElements = [];
+  }
+
   dispose(): void {
     if (this.room) {
       this.room.disconnect();
@@ -245,6 +263,7 @@ export class LiveKitInputAdapter implements InputAdapter {
       this.remoteVideoElement = null;
     }
 
+    this.detachRemoteAudio();
     this.localStream = null;
     this.remoteStream = null;
     this.fileVideoElement = null;
