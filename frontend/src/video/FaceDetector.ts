@@ -88,7 +88,27 @@ export class MediaPipeFaceDetector implements IFaceDetector {
   async detect(image: HTMLVideoElement | ImageBitmap): Promise<FaceDetectionResult | null> {
     if (!this.landmarker) return null;
 
-    const result = this.landmarker.detect(image);
+    // For live video elements (especially WebRTC remote streams), snapshot the
+    // current frame to an ImageBitmap before passing to IMAGE-mode detect().
+    // IMAGE mode's detect() can miss the current GPU texture on live video
+    // elements — the texture from network-decoded frames may not be
+    // synchronously available, causing detect() to return empty results.
+    // Converting to ImageBitmap forces a reliable pixel read from the video.
+    let source: HTMLVideoElement | ImageBitmap = image;
+    if (image instanceof HTMLVideoElement && image.videoWidth > 0 && image.videoHeight > 0) {
+      try {
+        source = await createImageBitmap(image);
+      } catch {
+        // Fall back to the video element if bitmap creation fails
+      }
+    }
+
+    const result = this.landmarker.detect(source);
+
+    // Clean up the ImageBitmap to avoid memory leaks
+    if (source !== image && source instanceof ImageBitmap) {
+      source.close();
+    }
 
     if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
       return null;

@@ -151,7 +151,7 @@ export class StreamManager {
     for (const participant of ['tutor', 'student'] as ParticipantRole[]) {
       const ps = this.streams[participant];
       const videoEl = ps.videoElement;
-      if (!videoEl || videoEl.readyState < 2) continue; // HAVE_CURRENT_DATA
+      if (!videoEl || videoEl.readyState < 2 || videoEl.videoWidth === 0) continue;
 
       const frameData: FrameData = {
         participant,
