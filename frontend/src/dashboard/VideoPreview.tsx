@@ -6,17 +6,21 @@ interface VideoPreviewProps {
   label: string;
   showMesh?: boolean;
   mirrored?: boolean;
+  onVideoElement?: (el: HTMLVideoElement | null) => void;
 }
 
-export default function VideoPreview({ stream, label, showMesh, mirrored }: VideoPreviewProps) {
+export default function VideoPreview({ stream, label, showMesh, mirrored, onVideoElement }: VideoPreviewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
       videoRef.current.play().catch(() => {});
+      onVideoElement?.(videoRef.current);
+    } else {
+      onVideoElement?.(null);
     }
-  }, [stream]);
+  }, [stream, onVideoElement]);
 
   return (
     <div style={styles.container}>

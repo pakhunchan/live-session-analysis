@@ -178,13 +178,17 @@ export class LiveKitInputAdapter implements InputAdapter {
     }
     this.remoteStream.addTrack(mediaTrack);
 
-    // Create or update the remote video element
+    // Create or update the remote video element (used for face detection only;
+    // audio playback is handled by LiveKit, display by VideoPreview component).
+    // Must be muted so autoplay works reliably per browser autoplay policies.
     if (!this.remoteVideoElement) {
       this.remoteVideoElement = document.createElement('video');
       this.remoteVideoElement.playsInline = true;
       this.remoteVideoElement.autoplay = true;
+      this.remoteVideoElement.muted = true;
     }
     this.remoteVideoElement.srcObject = this.remoteStream;
+    this.remoteVideoElement.play().catch(() => {});
 
     // Fire callback so orchestrator can wire up StreamManager
     if (this.onRemoteTrackCallback && this.remoteStream && this.remoteVideoElement) {

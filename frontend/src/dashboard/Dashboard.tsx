@@ -71,6 +71,18 @@ export default function Dashboard() {
   const nudges = tutor.nudges;
   const streamManager = myRole === 'tutor' ? tutor.streamManager : student.streamManager;
 
+  // Wire DOM video elements to StreamManager for face detection.
+  // The programmatic video elements created by LiveKitInputAdapter are off-DOM
+  // and browsers can suspend their frame delivery. Using the visible DOM elements
+  // ensures MediaPipe always gets live frames.
+  const handleTutorVideoElement = useCallback((el: HTMLVideoElement | null) => {
+    if (el) streamManager.setVideoElement('tutor', el);
+  }, [streamManager]);
+
+  const handleStudentVideoElement = useCallback((el: HTMLVideoElement | null) => {
+    if (el) streamManager.setVideoElement('student', el);
+  }, [streamManager]);
+
   const handleJoinRoom = useCallback(async (config: LiveKitSetupConfig) => {
     try {
       setError(null);
@@ -265,6 +277,7 @@ export default function Dashboard() {
                 label=""
                 showMesh={showMesh}
                 mirrored={primaryView === 'tutor' && isTutorWebcam && mirrorTutor}
+                onVideoElement={primaryView === 'student' ? handleStudentVideoElement : handleTutorVideoElement}
               />
               {myRole === 'tutor' && primaryView === 'student' && <StudentOverlays metrics={snapshot?.student ?? null} />}
               {myRole === 'tutor' && <PersistentMetrics student={snapshot?.student ?? null} />}
@@ -275,6 +288,7 @@ export default function Dashboard() {
                   label={primaryView === 'student' ? 'You' : 'Student'}
                   showMesh={showMesh}
                   mirrored={primaryView === 'student' && isTutorWebcam && mirrorTutor}
+                  onVideoElement={primaryView === 'student' ? handleTutorVideoElement : handleStudentVideoElement}
                 />
                 {myRole === 'tutor' && primaryView === 'tutor' && <StudentOverlays metrics={snapshot?.student ?? null} />}
                 {isTutorWebcam && primaryView === 'student' && (
