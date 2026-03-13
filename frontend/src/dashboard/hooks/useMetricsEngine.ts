@@ -127,8 +127,12 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     const wsUrl = WS_BASE || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/metrics`;
     transport.connect(wsUrl, roomName, 'tutor');
 
-    // Receive remote student metrics from backend → ingest into MetricsEngine
+    // Receive remote student metrics from backend → ingest into MetricsEngine.
+    // Skip remote video metrics — tutor processes student video locally via
+    // the DOM video element, which is more reliable than the student device
+    // (e.g. iOS Safari where MediaPipe GPU delegate may not work).
     transport.onRemoteMetrics((dp, _serverTimestamp) => {
+      if (dp.source === 'video') return;
       metricsEngineRef.current?.ingestDataPoint(dp);
     });
 
