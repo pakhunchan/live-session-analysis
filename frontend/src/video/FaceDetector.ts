@@ -76,7 +76,7 @@ export class MediaPipeFaceDetector implements IFaceDetector {
         modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
         delegate: 'GPU',
       },
-      runningMode: 'VIDEO',
+      runningMode: 'IMAGE',
       numFaces: 1,
       outputFaceBlendshapes: true,
       outputFacialTransformationMatrixes: true,
@@ -88,8 +88,7 @@ export class MediaPipeFaceDetector implements IFaceDetector {
   async detect(image: HTMLVideoElement | ImageBitmap): Promise<FaceDetectionResult | null> {
     if (!this.landmarker) return null;
 
-    const timestamp = performance.now();
-    const result = this.landmarker.detectForVideo(image, timestamp);
+    const result = this.landmarker.detect(image);
 
     if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
       return null;
