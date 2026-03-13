@@ -128,8 +128,11 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     transport.connect(wsUrl, roomName, 'tutor');
 
     // Receive remote student metrics from backend → ingest into MetricsEngine.
-    // Each device processes its own video+audio and sends metrics via WebSocket.
+    // Skip remote video metrics — tutor processes student video locally via
+    // the DOM video element, which is more reliable than the student device
+    // (e.g. iOS Safari where MediaPipe GPU delegate may not work).
     transport.onRemoteMetrics((dp, _serverTimestamp) => {
+      if (dp.source === 'video') return;
       metricsEngineRef.current?.ingestDataPoint(dp);
     });
 
