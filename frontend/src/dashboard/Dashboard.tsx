@@ -80,8 +80,10 @@ export default function Dashboard() {
   }, [streamManager]);
 
   const handleStudentVideoElement = useCallback((el: HTMLVideoElement | null) => {
-    if (el) streamManager.setVideoElement('student', el);
-  }, [streamManager]);
+    // Only register when this device IS the student — tutor gets student
+    // video metrics from WebSocket instead of processing locally.
+    if (el && myRole === 'student') streamManager.setVideoElement('student', el);
+  }, [streamManager, myRole]);
 
   const handleJoinRoom = useCallback(async (config: LiveKitSetupConfig) => {
     try {
