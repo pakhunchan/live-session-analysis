@@ -11,7 +11,7 @@ import { LiveKitSessionOrchestrator } from '../core/LiveKitSessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
 import { fetchRecommendations, generateFallbackRecommendations } from '../core/openaiRecommendations';
 import { engagementScore } from '../core/engagement';
-import { colors, font, glassmorphism, layout, radius } from './designTokens';
+import { colors, font, glassmorphism, layout, radius, metricColor } from './designTokens';
 import type { LiveKitSetupConfig, InputSourceType, SessionSummary } from '../types/session';
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
@@ -45,6 +45,7 @@ export default function Dashboard() {
   const [roomName, setRoomName] = useState<string | null>(null);
   const [myName, setMyName] = useState<string>('');
   const [remoteName, setRemoteName] = useState<string | null>(null);
+  const [videoHovered, setVideoHovered] = useState(false);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -233,7 +234,6 @@ export default function Dashboard() {
   const studentMetrics = snapshot?.student ?? null;
   const studentEng = studentMetrics ? engagementScore(studentMetrics) : null;
   const studentTalk = studentMetrics?.talkTimePercent ?? null;
-  const faceDetected = studentMetrics?.faceDetected ?? false;
 
   const elapsed = snapshot?.session?.sessionElapsedMs ?? 0;
 
@@ -312,6 +312,8 @@ export default function Dashboard() {
           <div style={styles.videoArea}>
             <div
               ref={videoStageRef}
+              onMouseEnter={() => setVideoHovered(true)}
+              onMouseLeave={() => setVideoHovered(false)}
               style={{
                 ...styles.videoStage,
                 ...(isFullscreen ? { borderRadius: 0, width: '100%', height: '100%' } : {}),
@@ -334,24 +336,19 @@ export default function Dashboard() {
                 onVideoElement={primaryView === 'student' ? handleStudentVideoElement : handleTutorVideoElement}
               />
 
+              {/* Engagement border — colored inset glow */}
+              {myRole === 'tutor' && primaryView === 'student' && (
+                <div style={{
+                  ...styles.engagementBorder,
+                  boxShadow: `inset 0 0 0 4px ${metricColor(studentEng)}`,
+                }} />
+              )}
+
               {/* Overlay gauges — top-left */}
               {myRole === 'tutor' && primaryView === 'student' && (
                 <div style={styles.overlayGauges}>
                   <SvgDonut value={studentEng} size={40} strokeWidth={4} label="Engage" dark />
                   <SvgDonut value={studentTalk} size={40} strokeWidth={4} label="Talk" dark />
-                  {/* Face indicator */}
-                  <div style={{
-                    ...styles.faceIndicator,
-                    borderColor: faceDetected ? colors.green : colors.red,
-                  }}>
-                    <div style={{
-                      ...styles.faceIndicatorDot,
-                      background: faceDetected ? colors.green : colors.red,
-                    }} />
-                    <span style={styles.faceIndicatorText}>
-                      {faceDetected ? 'Face' : 'No Face'}
-                    </span>
-                  </div>
                 </div>
               )}
 
@@ -361,7 +358,13 @@ export default function Dashboard() {
               </div>
 
               {/* PiP self-view — bottom-right */}
-              <div style={styles.pipOverlay}>
+              <div style={{
+                ...styles.pipOverlay,
+                ...(myRole === 'tutor' && primaryView === 'tutor' ? {
+                  borderColor: metricColor(studentEng),
+                  boxShadow: `0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px ${metricColor(studentEng)}40`,
+                } : {}),
+              }}>
                 <VideoPreview
                   stream={primaryView === 'student' ? tutorStream : studentStream}
                   label={primaryView === 'student' ? myName : studentName}
@@ -369,6 +372,41 @@ export default function Dashboard() {
                   mirrored={primaryView === 'student' && isTutorWebcam && mirrorTutor}
                   onVideoElement={primaryView === 'student' ? handleTutorVideoElement : handleStudentVideoElement}
                 />
+                {/* Mini gauges on PiP when student is in mini-view */}
+                {myRole === 'tutor' && primaryView === 'tutor' && (
+                  <div style={styles.pipGauges}>
+                    <SvgDonut value={studentEng} size={26} strokeWidth={3} label="Engage" dark />
+                    <SvgDonut value={studentTalk} size={26} strokeWidth={3} label="Talk" dark />
+                  </div>
+                )}
+                {/* Mute button — on PiP when my video is in mini-view */}
+                {primaryView !== myRole && (
+                  <button
+                    onClick={toggleMute}
+                    style={{
+                      ...styles.pipMuteBtn,
+                      ...(muted ? styles.muteBtnDanger : {}),
+                      opacity: videoHovered ? 1 : 0,
+                      pointerEvents: videoHovered ? 'auto' : 'none',
+                    }}
+                    title={muted ? 'Unmute' : 'Mute'}
+                  >
+                    {muted ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                        <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.12 1.5-.35 2.18" />
+                        <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                        <rect x="9" y="1" width="6" height="12" rx="3" />
+                        <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
+                        <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+                      </svg>
+                    )}
+                  </button>
+                )}
                 <button onClick={swapPrimaryView} style={styles.pipSwapBtn} title="Swap to main view">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="15 3 21 3 21 9" />
@@ -378,6 +416,35 @@ export default function Dashboard() {
                   </svg>
                 </button>
               </div>
+
+              {/* Mute button — on main video when my video is primary */}
+              {primaryView === myRole && (
+                <button
+                  onClick={toggleMute}
+                  style={{
+                    ...styles.muteBtn,
+                    ...(muted ? styles.muteBtnDanger : {}),
+                    opacity: videoHovered ? 1 : 0,
+                    pointerEvents: videoHovered ? 'auto' : 'none',
+                  }}
+                  title={muted ? 'Unmute' : 'Mute'}
+                >
+                  {muted ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                      <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
+                      <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.12 1.5-.35 2.18" />
+                      <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <rect x="9" y="1" width="6" height="12" rx="3" />
+                      <path d="M19 10v1a7 7 0 0 1-14 0v-1" />
+                      <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
+                    </svg>
+                  )}
+                </button>
+              )}
 
               {/* Fullscreen button — top-right */}
               <div style={styles.topRightControls}>
@@ -422,9 +489,7 @@ export default function Dashboard() {
       {/* ===== BOTTOM CONTROLS ===== */}
       {isRunning && (
         <BottomControls
-          muted={muted}
           showMesh={showMesh}
-          onToggleMute={toggleMute}
           onToggleMesh={() => setShowMesh(m => !m)}
           onEndSession={handleStop}
         />
@@ -539,6 +604,16 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: 0,
   },
 
+  // ── Engagement border ──
+  engagementBorder: {
+    position: 'absolute',
+    inset: 0,
+    borderRadius: radius.md,
+    pointerEvents: 'none',
+    zIndex: 1,
+    transition: 'box-shadow 0.5s ease',
+  },
+
   // ── Waiting ──
   waitingOverlay: {
     position: 'absolute',
@@ -582,25 +657,19 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid rgba(255,255,255,0.08)',
     padding: '8px 12px',
   },
-  faceIndicator: {
+  pipGauges: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
     display: 'flex',
     alignItems: 'center',
-    gap: 5,
-    background: 'rgba(0,0,0,0.35)',
-    backdropFilter: 'blur(16px)',
-    borderRadius: radius.sm,
-    border: '1px solid rgba(255,255,255,0.08)',
-    padding: '5px 10px',
-  },
-  faceIndicatorDot: {
-    width: 6,
-    height: 6,
-    borderRadius: '50%',
-  },
-  faceIndicatorText: {
-    fontSize: '0.65rem',
-    color: 'rgba(255,255,255,0.7)',
-    fontWeight: 500,
+    gap: 4,
+    zIndex: 3,
+    background: 'rgba(0,0,0,0.4)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    borderRadius: 6,
+    padding: '3px 6px',
   },
 
   // ── Name Badge ──
@@ -620,6 +689,53 @@ const styles: Record<string, React.CSSProperties> = {
     zIndex: 3,
   },
 
+  // ── Mute Button ──
+  muteBtn: {
+    position: 'absolute',
+    bottom: 14,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 44,
+    height: 44,
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.5)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    color: '#fff',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 4,
+    transition: 'all 0.15s ease',
+  },
+  muteBtnDanger: {
+    background: 'rgba(220, 53, 69, 0.7)',
+    borderColor: 'rgba(220, 53, 69, 0.9)',
+  },
+
+  pipMuteBtn: {
+    position: 'absolute',
+    bottom: 6,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    width: 30,
+    height: 30,
+    borderRadius: '50%',
+    background: 'rgba(0,0,0,0.5)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    color: '#fff',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 4,
+    transition: 'all 0.15s ease',
+  },
+
   // ── PiP ──
   pipOverlay: {
     position: 'absolute',
@@ -630,8 +746,9 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: radius.sm,
     overflow: 'hidden',
     boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-    border: '2px solid rgba(255,255,255,0.15)',
+    border: '3px solid rgba(255,255,255,0.15)',
     zIndex: 2,
+    transition: 'border-color 0.5s ease, box-shadow 0.5s ease',
   },
   pipSwapBtn: {
     position: 'absolute',

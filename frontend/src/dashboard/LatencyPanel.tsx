@@ -11,7 +11,7 @@ function ms(v: number): string {
 }
 
 const LEG_COLORS = [colors.mint, colors.blue, colors.lavender, colors.amber, colors.coral];
-const LEG_LABELS = ['Client Processing', '→ Server', 'Server Processing', '→ Tutor', 'Ingestion'];
+const LEG_LABELS = ['Client Processing', 'Client → Server', 'Server Processing', 'Server → Client', 'Ingestion'];
 
 function LegRow({ label, value, maxMs, color }: { label: string; value: number; maxMs: number; color: string }) {
   const pct = maxMs > 0 ? Math.min(100, (value / maxMs) * 100) : 0;
@@ -44,7 +44,14 @@ export default function LatencyPanel({ breakdown }: LatencyPanelProps) {
   return (
     <div style={{ ...cardStyle, padding: 0 }}>
       <button style={s.header} onClick={() => setOpen(!open)}>
-        <span style={s.title}>Latency Breakdown</span>
+        <div style={s.titleGroup}>
+          <span style={s.title}>
+            Latency
+            {!open && hasSamples && (
+              <span style={s.totalInline}>{ms(total)}</span>
+            )}
+          </span>
+        </div>
         <svg
           width="16"
           height="16"
@@ -68,6 +75,7 @@ export default function LatencyPanel({ breakdown }: LatencyPanelProps) {
         transition: 'max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
       }}>
         <div style={s.body}>
+          <span style={s.subtitle}>Latency of metrics data flowing from users to dashboard</span>
           {hasSamples && b ? (
             <>
               {legs.map((v, i) => (
@@ -107,12 +115,33 @@ const s: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontFamily: font,
   },
+  titleGroup: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    flex: 1,
+    gap: 2,
+  },
   title: {
     fontSize: '0.78rem',
     fontWeight: 600,
     color: colors.textSecondary,
     textTransform: 'uppercase' as const,
     letterSpacing: '0.06em',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+  },
+  subtitle: {
+    fontSize: '0.7rem',
+    color: colors.textTertiary,
+    fontWeight: 400,
+  },
+  totalInline: {
+    fontSize: '0.78rem',
+    fontWeight: 700,
+    color: colors.textPrimary,
+    fontVariantNumeric: 'tabular-nums',
+    marginLeft: 'auto',
   },
   body: {
     padding: '0 16px 14px',

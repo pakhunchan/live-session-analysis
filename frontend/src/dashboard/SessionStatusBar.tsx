@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { colors, font } from './designTokens';
 import type { SessionMetrics } from '../types';
 
@@ -13,12 +13,22 @@ function formatDuration(ms: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
-function getTrendLabel(trend: string): { icon: string; text: string; color: string } {
-  switch (trend) {
-    case 'rising': return { icon: '↑', text: 'Rising', color: colors.green };
-    case 'declining': return { icon: '↓', text: 'Declining', color: colors.red };
-    default: return { icon: '→', text: 'Stable', color: colors.textSecondary };
-  }
+function HoverCell({ value, label, tooltip }: { value: React.ReactNode; label: string; tooltip: string }) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      style={styles.cell}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div style={styles.value}>{value}</div>
+      <div style={styles.label}>{label}</div>
+      {hovered && (
+        <div style={styles.tooltip}>{tooltip}</div>
+      )}
+    </div>
+  );
 }
 
 export default function SessionStatusBar({ session }: SessionStatusBarProps) {
@@ -29,9 +39,6 @@ export default function SessionStatusBar({ session }: SessionStatusBarProps) {
     sessionElapsedMs: 0,
   };
 
-  const totalInterruptions = s.interruptions.student + s.interruptions.tutor + s.interruptions.accident;
-  const trend = getTrendLabel(s.engagementTrend);
-
   return (
     <div style={styles.grid}>
       <div style={styles.cell}>
@@ -39,19 +46,19 @@ export default function SessionStatusBar({ session }: SessionStatusBarProps) {
         <div style={styles.label}>Elapsed</div>
       </div>
       <div style={styles.cell}>
-        <div style={styles.value}>{totalInterruptions}</div>
-        <div style={styles.label}>Interruptions</div>
-      </div>
-      <div style={styles.cell}>
         <div style={styles.value}>{formatDuration(s.currentSilenceDurationMs)}</div>
         <div style={styles.label}>Silence</div>
       </div>
-      <div style={styles.cell}>
-        <div style={{ ...styles.value, color: trend.color }}>
-          {trend.icon} {trend.text}
-        </div>
-        <div style={styles.label}>Trend</div>
-      </div>
+      <HoverCell
+        value={s.interruptions.tutor}
+        label="Student Int."
+        tooltip="Number of times the student interrupted the tutor"
+      />
+      <HoverCell
+        value={s.interruptions.student}
+        label="Tutor Int."
+        tooltip="Number of times the tutor interrupted the student"
+      />
     </div>
   );
 }
@@ -64,6 +71,7 @@ const styles: Record<string, React.CSSProperties> = {
     fontFamily: font,
   },
   cell: {
+    position: 'relative',
     background: colors.surfaceHover,
     borderRadius: 10,
     padding: '8px 12px',
@@ -82,5 +90,24 @@ const styles: Record<string, React.CSSProperties> = {
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
     marginTop: 2,
+  },
+  tooltip: {
+    position: 'absolute',
+    bottom: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    marginBottom: 6,
+    padding: '6px 10px',
+    background: colors.textPrimary,
+    color: '#fff',
+    fontSize: '0.68rem',
+    fontWeight: 500,
+    borderRadius: 6,
+    whiteSpace: 'normal',
+    width: 180,
+    textAlign: 'center',
+    lineHeight: 1.4,
+    zIndex: 10,
+    pointerEvents: 'none',
   },
 };

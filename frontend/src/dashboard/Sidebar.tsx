@@ -26,8 +26,9 @@ function pct(v: number | null): string {
 
 // ── Participant Expandable Row ──
 
-function ParticipantRow({ label, metrics, avatarStyle }: {
+function ParticipantRow({ label, role, metrics, avatarStyle }: {
   label: string;
+  role: string;
   metrics: ParticipantMetrics | null;
   avatarStyle: React.CSSProperties;
 }) {
@@ -48,7 +49,10 @@ function ParticipantRow({ label, metrics, avatarStyle }: {
         <div style={{ ...s.avatar, ...avatarStyle }}>
           {label[0]}
         </div>
-        <span style={s.participantName}>{label}</span>
+        <div style={s.participantNameCol}>
+          <span style={s.participantName}>{label}</span>
+          <span style={s.participantRole}>{role}</span>
+        </div>
         <span style={{ ...s.quickStat, color: engColor }}>{pct(eng)}</span>
         <svg
           width="16"
@@ -99,48 +103,86 @@ function ParticipantRow({ label, metrics, avatarStyle }: {
 
 export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus, tutorName, studentName }: SidebarProps) {
   const studentEng = snapshot?.student ? engagementScore(snapshot.student) : null;
-  const tutorEng = snapshot?.tutor ? engagementScore(snapshot.tutor) : null;
+  const [engExpanded, setEngExpanded] = useState(false);
+
+  const studentMetricCells = snapshot?.student ? [
+    { label: 'Eye Contact', value: snapshot.student.eyeContactScore },
+    { label: 'Energy', value: snapshot.student.energyScore },
+    { label: 'Talking', value: snapshot.student.isSpeaking === true ? 1 : snapshot.student.isSpeaking === false ? 0 : null, isBool: true },
+    { label: 'Face Conf', value: snapshot.student.faceConfidence },
+  ] as Array<{ label: string; value: number | null; isBool?: boolean }> : [];
 
   return (
     <aside style={s.sidebar}>
       <div style={s.inner}>
-        {/* 1. Hero Donuts */}
+        {/* 1. Coaching Nudges */}
+        <NudgeChips bus={eventBus} />
+
+        {/* 2. Engagement */}
         <div style={cardStyle}>
           <div style={s.cardTitle}>Engagement</div>
-          <div style={s.heroDonutRow}>
-            <div style={s.heroDonut}>
-              <SvgDonut value={studentEng} size={110} strokeWidth={8} />
-              <span style={s.donutLabel}>{studentName}</span>
+          <button style={s.engagementBody} onClick={() => setEngExpanded(!engExpanded)}>
+            <div style={s.engagementHeader}>
+              <div style={s.engagementName}>{studentName}</div>
+              <div style={s.donutRole}>Student</div>
             </div>
-            <div style={s.heroDonut}>
-              <SvgDonut value={tutorEng} size={110} strokeWidth={8} />
-              <span style={s.donutLabel}>{tutorName}</span>
+            <div style={s.heroDonutRow}>
+              <div style={s.heroDonut}>
+                <SvgDonut value={studentEng} size={110} strokeWidth={8} />
+                <span style={s.donutSubLabel}>Engagement</span>
+              </div>
+              <div style={s.heroDonut}>
+                <SvgDonut value={snapshot?.student?.energyScore ?? null} size={110} strokeWidth={8} />
+                <span style={s.donutSubLabel}>Energy</span>
+              </div>
             </div>
+          </button>
+          <div style={{
+            maxHeight: engExpanded ? 400 : 0,
+            overflow: 'hidden',
+            transition: 'max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}>
+            {snapshot?.student && (
+              <div style={s.metricGrid}>
+                {studentMetricCells.map((mc) => {
+                  if (mc.isBool) {
+                    const active = mc.value === 1;
+                    return (
+                      <div key={mc.label} style={s.metricCell}>
+                        <div style={s.mcLabel}>{mc.label}</div>
+                        <div style={{ ...s.mcValue, color: active ? colors.green : colors.textTertiary }}>
+                          {mc.value === null ? '–' : active ? 'Yes' : 'No'}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const c = metricColor(mc.value);
+                  const w = mc.value !== null ? `${Math.round(mc.value * 100)}%` : '0%';
+                  return (
+                    <div key={mc.label} style={s.metricCell}>
+                      <div style={s.mcLabel}>{mc.label}</div>
+                      <div style={{ ...s.mcValue, color: c }}>{pct(mc.value)}</div>
+                      <div style={s.mcBar}>
+                        <div style={{ ...s.mcBarFill, width: w, background: c }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* 2. Participants */}
-        <div style={cardStyle}>
-          <div style={s.cardTitle}>Participants</div>
-          <ParticipantRow
-            label={studentName}
-            metrics={snapshot?.student ?? null}
-            avatarStyle={{ background: `linear-gradient(135deg, ${colors.blue}, ${colors.lavender})` }}
-          />
-          <ParticipantRow
-            label={tutorName}
-            metrics={snapshot?.tutor ?? null}
-            avatarStyle={{ background: `linear-gradient(135deg, ${colors.mint}, #3bb8d8)` }}
-          />
-        </div>
+        {/* 3. Latency */}
+        <LatencyPanel breakdown={latencyBreakdown} />
 
-        {/* 3. Session Stats */}
+        {/* 4. Session */}
         <div style={cardStyle}>
           <div style={s.cardTitle}>Session</div>
           <SessionStatusBar session={snapshot?.session ?? null} />
         </div>
 
-        {/* 4. Timeline */}
+        {/* 5. Engagement Timeline */}
         <div style={cardStyle}>
           <div style={s.cardTitle}>Engagement Timeline</div>
           <TimelineChart history={history} height={100} />
@@ -154,11 +196,16 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus,
           </div>
         </div>
 
-        {/* 5. Latency */}
-        <LatencyPanel breakdown={latencyBreakdown} />
-
-        {/* 6. Nudges */}
-        <NudgeChips bus={eventBus} />
+        {/* 6. Tutor Engagement */}
+        <div style={cardStyle}>
+          <div style={s.cardTitle}>Tutor Engagement</div>
+          <ParticipantRow
+            label={tutorName}
+            role="Tutor"
+            metrics={snapshot?.tutor ?? null}
+            avatarStyle={{ background: `linear-gradient(135deg, ${colors.mint}, #3bb8d8)` }}
+          />
+        </div>
       </div>
     </aside>
   );
@@ -191,6 +238,32 @@ const s: Record<string, React.CSSProperties> = {
     marginBottom: 14,
   },
 
+  // Engagement clickable body
+  engagementBody: {
+    width: '100%',
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    padding: 0,
+    fontFamily: font,
+    textAlign: 'center' as const,
+  },
+
+  // Engagement header
+  engagementHeader: {
+    textAlign: 'center' as const,
+    marginBottom: 12,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 2,
+  },
+  engagementName: {
+    fontSize: '1.4rem',
+    fontWeight: 700,
+    color: colors.textPrimary,
+  },
+
   // Hero donuts
   heroDonutRow: {
     display: 'flex',
@@ -209,6 +282,17 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: '0.78rem',
     fontWeight: 600,
     color: colors.textSecondary,
+  },
+  donutRole: {
+    fontSize: '0.65rem',
+    fontWeight: 500,
+    color: colors.textTertiary,
+    marginTop: -4,
+  },
+  donutSubLabel: {
+    fontSize: '0.72rem',
+    fontWeight: 500,
+    color: colors.textTertiary,
   },
 
   // Participant rows
@@ -237,11 +321,21 @@ const s: Record<string, React.CSSProperties> = {
     color: '#fff',
     flexShrink: 0,
   },
-  participantName: {
+  participantNameCol: {
     flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  participantName: {
     fontWeight: 600,
     fontSize: '0.85rem',
     color: colors.textPrimary,
+    lineHeight: 1.2,
+  },
+  participantRole: {
+    fontSize: '0.68rem',
+    fontWeight: 500,
+    color: colors.textTertiary,
   },
   quickStat: {
     fontSize: '0.82rem',
