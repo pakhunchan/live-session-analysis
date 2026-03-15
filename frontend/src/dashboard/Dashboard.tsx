@@ -226,6 +226,27 @@ export default function Dashboard() {
   }, [myRole, tutor, student, roomName]);
 
   const isTutorWebcam = myRole === 'tutor' && inputSource === 'webcam';
+  const showSetup = !isRunning && !sessionSummary;
+
+  // When showing the setup screen, render it full-viewport without the dashboard chrome
+  if (showSetup) {
+    return (
+      <div style={{ position: 'relative', minHeight: '100vh' }}>
+        {error && (
+          <div style={{ ...styles.errorBanner, position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+            {error}
+            <button
+              onClick={() => setError(null)}
+              style={{ marginLeft: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, color: '#842029', fontSize: '1rem' }}
+            >
+              &times;
+            </button>
+          </div>
+        )}
+        <SessionSetup onStart={handleJoinRoom} isLoading={setupLoading} />
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
@@ -241,10 +262,6 @@ export default function Dashboard() {
       </header>
 
       {error && <div style={styles.errorBanner}>{error}</div>}
-
-      {!isRunning && !sessionSummary && (
-        <SessionSetup onStart={handleJoinRoom} isLoading={setupLoading} />
-      )}
 
       {!isRunning && sessionSummary && myRole === 'tutor' && (
         <PostSessionSummary

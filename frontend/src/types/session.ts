@@ -19,6 +19,7 @@ export interface LiveKitSetupConfig {
   inputSource: InputSourceType;
   file?: File;
   roomName: string;
+  displayName?: string;
 }
 
 export interface SessionConfig {
