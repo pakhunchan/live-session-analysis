@@ -30,7 +30,7 @@ export const defaultRules: NudgeRule[] = [
     priority: 'medium',
     cooldownMs: 120_000,
     condition: (snap) =>
-      snap.tutor.talkTimePercent > 0.8 && snap.session.sessionElapsedMs > 60_000,
+      snap.tutor.talkTimePercent !== null && snap.tutor.talkTimePercent > 0.8 && snap.session.sessionElapsedMs > 60_000,
   },
   {
     type: 'energy_drop',
@@ -39,8 +39,8 @@ export const defaultRules: NudgeRule[] = [
     cooldownMs: 180_000,
     condition: (snap) =>
       snap.session.engagementTrend === 'declining' &&
-      snap.student.energyScore < 0.3 &&
-      snap.tutor.energyScore < 0.4,
+      snap.student.energyScore !== null && snap.student.energyScore < 0.3 &&
+      snap.tutor.energyScore !== null && snap.tutor.energyScore < 0.4,
   },
   {
     type: 'interruption_spike',

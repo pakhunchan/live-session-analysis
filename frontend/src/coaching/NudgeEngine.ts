@@ -44,7 +44,7 @@ export class NudgeEngine {
     if (!this.config.enabled) return [];
 
     // Suppress all nudges while the tutor is speaking
-    if (this.config.suppressDuringTutorSpeech && snapshot.tutor.isSpeaking) {
+    if (this.config.suppressDuringTutorSpeech && snapshot.tutor.isSpeaking === true) {
       return [];
     }
 
@@ -107,13 +107,13 @@ export class NudgeEngine {
       case 'student_silent':
         return { silenceDurationMs: snapshot.session.currentSilenceDurationMs };
       case 'low_eye_contact':
-        return { eyeContactScore: snapshot.student.eyeContactScore };
+        return { eyeContactScore: snapshot.student.eyeContactScore ?? 0 };
       case 'tutor_talk_dominant':
-        return { tutorTalkTime: snapshot.tutor.talkTimePercent };
+        return { tutorTalkTime: snapshot.tutor.talkTimePercent ?? 0 };
       case 'energy_drop':
         return {
-          studentEnergy: snapshot.student.energyScore,
-          tutorEnergy: snapshot.tutor.energyScore,
+          studentEnergy: snapshot.student.energyScore ?? 0,
+          tutorEnergy: snapshot.tutor.energyScore ?? 0,
         };
       case 'interruption_spike': {
         const { student, tutor, accident } = snapshot.session.interruptions;
