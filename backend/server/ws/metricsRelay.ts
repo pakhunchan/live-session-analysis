@@ -84,6 +84,8 @@ export function attachMetricsRelay(server: HttpServer): void {
           });
 
           // Forward student metrics to tutors in the same room
+          const source = (data as Record<string, unknown>)?.source;
+          console.log(`[metricsRelay] relaying student ${source} metrics to tutors`);
           for (const conn of room.connections) {
             if (conn.role === 'tutor' && conn.ws.readyState === WebSocket.OPEN) {
               conn.ws.send(relay);
