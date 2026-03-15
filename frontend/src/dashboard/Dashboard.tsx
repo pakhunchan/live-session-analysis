@@ -76,12 +76,12 @@ export default function Dashboard() {
   // and browsers can suspend their frame delivery. Using the visible DOM elements
   // ensures MediaPipe always gets live frames.
   const handleTutorVideoElement = useCallback((el: HTMLVideoElement | null) => {
-    if (el) streamManager.setVideoElement('tutor', el);
-  }, [streamManager]);
+    if (el && myRole === 'tutor') streamManager.setVideoElement('tutor', el);
+  }, [streamManager, myRole]);
 
   const handleStudentVideoElement = useCallback((el: HTMLVideoElement | null) => {
-    if (el) streamManager.setVideoElement('student', el);
-  }, [streamManager]);
+    if (el && myRole === 'student') streamManager.setVideoElement('student', el);
+  }, [streamManager, myRole]);
 
   const handleJoinRoom = useCallback(async (config: LiveKitSetupConfig) => {
     try {
@@ -152,20 +152,13 @@ export default function Dashboard() {
       }
       setStatus('Waiting for other participant...');
 
-      // When remote participant joins, update state
-      onRemoteReady.then(async () => {
-        const otherRole = config.role === 'tutor' ? 'student' : 'tutor';
-        const remoteStream = sm.getStream(otherRole);
-
+      // When remote participant joins, update state (stream is for playback only —
+      // each device processes its own camera/mic, not the remote stream)
+      onRemoteReady.then(async (remoteStream) => {
         if (config.role === 'tutor') {
           setStudentStream(remoteStream);
         } else {
           setTutorStream(remoteStream);
-        }
-
-        // Start VAD for the remote stream (tutor only — student doesn't process remote)
-        if (config.role === 'tutor' && remoteStream) {
-          await tutor.startVadForStream(otherRole, remoteStream);
         }
 
         setStatus('Running');

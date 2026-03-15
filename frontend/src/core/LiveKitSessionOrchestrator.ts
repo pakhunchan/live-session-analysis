@@ -12,13 +12,12 @@ export class LiveKitSessionOrchestrator {
     streamManager: StreamManager,
   ): Promise<{
     localStream: MediaStream | null;
-    onRemoteReady: Promise<void>;
+    onRemoteReady: Promise<MediaStream | null>;
   }> {
     const myRole: ParticipantRole = config.role;
-    const otherRole: ParticipantRole = myRole === 'tutor' ? 'student' : 'tutor';
 
-    const onRemoteReady = new Promise<void>((resolve) => {
-      this.remoteReadyResolve = resolve;
+    const onRemoteReady = new Promise<MediaStream | null>((resolve) => {
+      this.remoteReadyResolve = resolve as (() => void);
     });
 
     this.adapter = new LiveKitInputAdapter({
@@ -31,16 +30,16 @@ export class LiveKitSessionOrchestrator {
 
     // Wire remote track callback before connecting
     let remoteResolved = false;
-    this.adapter.setOnRemoteTrackSubscribed((remoteStream, _remoteVideoElement) => {
-      streamManager.setStream(otherRole, remoteStream);
-      // Don't set video element here — Dashboard's VideoPreview provides the DOM
-      // element, which is reliable for MediaPipe. This callback fires for every
-      // remote track (video + audio), so it would race with Dashboard and overwrite
-      // the DOM element with the off-DOM one.
+    let remoteStream: MediaStream | null = null;
+    this.adapter.setOnRemoteTrackSubscribed((stream, _remoteVideoElement) => {
+      remoteStream = stream;
+      // Don't register remote stream on StreamManager — each device processes only
+      // its own camera/mic. Remote streams are used for playback only (via
+      // VideoPreview's stream prop + LiveKit's audio element).
 
       if (!remoteResolved) {
         remoteResolved = true;
-        this.remoteReadyResolve?.();
+        (this.remoteReadyResolve as ((s: MediaStream | null) => void))?.(remoteStream);
       }
     });
 
