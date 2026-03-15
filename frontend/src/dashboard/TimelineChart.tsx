@@ -43,8 +43,8 @@ export default function TimelineChart({ history, height = 200 }: TimelineChartPr
     return secAgo < 0 ? `${secAgo}s` : 'now';
   });
 
-  const tutorEng = ema(window.map((s) => engagementScore(s.tutor)));
-  const studentEng = ema(window.map((s) => engagementScore(s.student)));
+  const tutorEng = ema(window.map((s) => engagementScore(s.tutor) ?? 0));
+  const studentEng = ema(window.map((s) => engagementScore(s.student) ?? 0));
 
   const data = {
     labels,

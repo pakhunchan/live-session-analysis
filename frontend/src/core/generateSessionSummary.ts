@@ -29,12 +29,12 @@ export function generateSessionSummary(
     return student + tutor + accident;
   }));
 
-  // Talk time ratio: mean across snapshots
-  const tutorTalk = mean(history.map(s => s.tutor.talkTimePercent));
-  const studentTalk = mean(history.map(s => s.student.talkTimePercent));
+  // Talk time ratio: mean across snapshots (filter nulls)
+  const tutorTalk = mean(history.map(s => s.tutor.talkTimePercent).filter((v): v is number => v !== null));
+  const studentTalk = mean(history.map(s => s.student.talkTimePercent).filter((v): v is number => v !== null));
 
   // Engagement score: mean of student engagement, scaled 0-100
-  const engScores = history.map(s => engagementScore(s.student));
+  const engScores = history.map(s => engagementScore(s.student)).filter((v): v is number => v !== null);
   const avgEngagement = Math.round(mean(engScores) * 100);
 
   // Detect key moments
@@ -73,9 +73,9 @@ function mean(values: number[]): number {
 function averageParticipantMetrics(snapshots: ParticipantMetrics[]): Partial<ParticipantMetrics> {
   if (snapshots.length === 0) return {};
   return {
-    eyeContactScore: mean(snapshots.map(s => s.eyeContactScore)),
-    talkTimePercent: mean(snapshots.map(s => s.talkTimePercent)),
-    energyScore: mean(snapshots.map(s => s.energyScore)),
+    eyeContactScore: mean(snapshots.map(s => s.eyeContactScore).filter((v): v is number => v !== null)),
+    talkTimePercent: mean(snapshots.map(s => s.talkTimePercent).filter((v): v is number => v !== null)),
+    energyScore: mean(snapshots.map(s => s.energyScore).filter((v): v is number => v !== null)),
   };
 }
 
@@ -87,7 +87,8 @@ function detectKeyMoments(history: MetricSnapshot[]): KeyMoment[] {
   // 1. Attention drop: student eyeContact < 0.3 for 10+ consecutive snapshots (5s at 2Hz)
   let lowEyeRun = 0;
   for (let i = 0; i < history.length; i++) {
-    if (history[i].student.eyeContactScore < 0.3) {
+    const eyeScore = history[i].student.eyeContactScore;
+    if (eyeScore !== null && eyeScore < 0.3) {
       lowEyeRun++;
       if (lowEyeRun === 10) {
         moments.push({
@@ -106,7 +107,7 @@ function detectKeyMoments(history: MetricSnapshot[]): KeyMoment[] {
   for (let i = 10; i < history.length; i++) {
     const prev = engagementScore(history[i - 10].student);
     const curr = engagementScore(history[i].student);
-    if (curr - prev > 0.3) {
+    if (curr !== null && prev !== null && curr - prev > 0.3) {
       moments.push({
         timestamp: history[i].timestamp,
         type: 'engagement_spike',
@@ -153,8 +154,9 @@ function detectKeyMoments(history: MetricSnapshot[]): KeyMoment[] {
   // 5. Energy shift: student energyScore drops >0.3 sustained for 20 snapshots (10s)
   for (let i = 20; i < history.length; i++) {
     const baseline = history[i - 20].student.energyScore;
+    if (baseline === null) continue;
     const allLow = history.slice(i - 19, i + 1)
-      .every(s => baseline - s.student.energyScore > 0.3);
+      .every(s => s.student.energyScore !== null && baseline - s.student.energyScore > 0.3);
     if (allLow) {
       moments.push({
         timestamp: history[i - 19].timestamp,
