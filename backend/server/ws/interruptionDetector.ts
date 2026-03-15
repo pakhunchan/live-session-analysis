@@ -57,7 +57,7 @@ export class InterruptionDetector {
   private readonly ESTABLISHED_SPEAKER_MS = 1000;
   private readonly COOLDOWN_CONTINUOUS_MS = 3000;
   private readonly COOLDOWN_PAUSED_MS = 2000;
-  private readonly SPEECH_GAP_DEBOUNCE_MS = 1000;
+  private readonly SPEECH_GAP_DEBOUNCE_MS = 500;
 
   /**
    * Ingest an audio data point. correctedTs = dp.timestamp + clockOffset.
