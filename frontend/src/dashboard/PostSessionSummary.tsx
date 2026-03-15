@@ -17,11 +17,12 @@ function formatDuration(ms: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
-function formatTimestamp(ts: number, sessionStart: number): string {
-  const sec = Math.floor((ts - sessionStart) / 1000);
-  const min = Math.floor(sec / 60);
-  const s = sec % 60;
-  return `${min.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+/** Format a relative timestamp (ms offset from session start) as m:ss */
+function formatTimestamp(offsetMs: number): string {
+  const totalSec = Math.max(0, Math.floor(offsetMs / 1000));
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 const momentIcons: Record<string, string> = {
@@ -41,7 +42,6 @@ const momentColors: Record<string, string> = {
 };
 
 export default function PostSessionSummary({ summary, history, onNewSession }: PostSessionSummaryProps) {
-  const sessionStart = history.length > 0 ? history[0].timestamp : 0;
 
   return (
     <div style={styles.container}>
@@ -139,7 +139,7 @@ export default function PostSessionSummary({ summary, history, onNewSession }: P
                   {momentIcons[moment.type] ?? '\u25CF'}
                 </span>
                 <span style={styles.momentTime}>
-                  {formatTimestamp(moment.timestamp, sessionStart)}
+                  {formatTimestamp(moment.timestamp)}
                 </span>
                 <span style={styles.momentDesc}>{moment.description}</span>
               </div>

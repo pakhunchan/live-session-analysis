@@ -258,7 +258,10 @@ export class SessionAccumulator {
       totalInterruptions,
       talkTimeRatio: { tutor: tutorTalk, student: studentTalk },
       engagementScore: studentEngagement,
-      keyMoments: [...this.keyMoments],
+      keyMoments: this.keyMoments.map(m => ({
+        ...m,
+        timestamp: m.timestamp - this.startMs,  // convert to relative offset (ms from session start)
+      })),
       nudgesTriggered: [], // Nudges are frontend-only; backend doesn't track them
     };
   }
