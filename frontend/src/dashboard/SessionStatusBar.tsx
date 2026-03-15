@@ -1,4 +1,5 @@
 import React from 'react';
+import { colors, font } from './designTokens';
 import type { SessionMetrics } from '../types';
 
 interface SessionStatusBarProps {
@@ -12,19 +13,11 @@ function formatDuration(ms: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
-function getTrendIcon(trend: string): string {
+function getTrendLabel(trend: string): { icon: string; text: string; color: string } {
   switch (trend) {
-    case 'rising': return '↑';
-    case 'declining': return '↓';
-    default: return '→';
-  }
-}
-
-function getTrendColor(trend: string): string {
-  switch (trend) {
-    case 'rising': return '#198754';
-    case 'declining': return '#dc3545';
-    default: return '#6c757d';
+    case 'rising': return { icon: '↑', text: 'Rising', color: colors.green };
+    case 'declining': return { icon: '↓', text: 'Declining', color: colors.red };
+    default: return { icon: '→', text: 'Stable', color: colors.textSecondary };
   }
 }
 
@@ -36,64 +29,58 @@ export default function SessionStatusBar({ session }: SessionStatusBarProps) {
     sessionElapsedMs: 0,
   };
 
-  const { student, tutor, accident } = s.interruptions;
+  const totalInterruptions = s.interruptions.student + s.interruptions.tutor + s.interruptions.accident;
+  const trend = getTrendLabel(s.engagementTrend);
 
   return (
-    <div style={styles.bar}>
-      <div style={styles.item}>
-        <span style={styles.label}>Elapsed</span>
-        <span style={styles.value}>{formatDuration(s.sessionElapsedMs)}</span>
+    <div style={styles.grid}>
+      <div style={styles.cell}>
+        <div style={styles.value}>{formatDuration(s.sessionElapsedMs)}</div>
+        <div style={styles.label}>Elapsed</div>
       </div>
-      <div style={styles.item}>
-        <span style={styles.label}>Student</span>
-        <span style={styles.value}>{student}</span>
+      <div style={styles.cell}>
+        <div style={styles.value}>{totalInterruptions}</div>
+        <div style={styles.label}>Interruptions</div>
       </div>
-      <div style={styles.item}>
-        <span style={styles.label}>Tutor</span>
-        <span style={styles.value}>{tutor}</span>
+      <div style={styles.cell}>
+        <div style={styles.value}>{formatDuration(s.currentSilenceDurationMs)}</div>
+        <div style={styles.label}>Silence</div>
       </div>
-      <div style={styles.item}>
-        <span style={styles.label}>Other</span>
-        <span style={styles.value}>{accident}</span>
-      </div>
-      <div style={styles.item}>
-        <span style={styles.label}>Silence</span>
-        <span style={styles.value}>{formatDuration(s.currentSilenceDurationMs)}</span>
-      </div>
-      <div style={styles.item}>
-        <span style={styles.label}>Trend</span>
-        <span style={{ ...styles.value, color: getTrendColor(s.engagementTrend) }}>
-          {getTrendIcon(s.engagementTrend)} {s.engagementTrend}
-        </span>
+      <div style={styles.cell}>
+        <div style={{ ...styles.value, color: trend.color }}>
+          {trend.icon} {trend.text}
+        </div>
+        <div style={styles.label}>Trend</div>
       </div>
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  bar: {
-    display: 'flex',
-    gap: '1.5rem',
-    padding: '0.75rem 1rem',
-    background: '#f8f9fa',
-    borderRadius: '8px',
-    border: '1px solid #dee2e6',
-    flexWrap: 'wrap',
+  grid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: 8,
+    fontFamily: font,
   },
-  item: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
+  cell: {
+    background: colors.surfaceHover,
+    borderRadius: 10,
+    padding: '8px 12px',
+    textAlign: 'center',
+  },
+  value: {
+    fontSize: '1.05rem',
+    fontWeight: 700,
+    color: colors.textPrimary,
+    fontVariantNumeric: 'tabular-nums',
+    lineHeight: 1.3,
   },
   label: {
     fontSize: '0.65rem',
-    color: '#6c757d',
+    color: colors.textTertiary,
     textTransform: 'uppercase',
     letterSpacing: '0.05em',
-  },
-  value: {
-    fontSize: '1rem',
-    fontWeight: 700,
-    fontVariantNumeric: 'tabular-nums',
+    marginTop: 2,
   },
 };

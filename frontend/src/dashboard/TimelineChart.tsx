@@ -11,6 +11,7 @@ import {
   Filler,
 } from 'chart.js';
 import { engagementScore } from '../core/engagement';
+import { colors } from './designTokens';
 import type { MetricSnapshot } from '../types';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler);
@@ -32,8 +33,7 @@ function ema(values: number[], alpha = 0.15): number[] {
 
 const WINDOW_SEC = 60;
 
-export default function TimelineChart({ history, height = 200 }: TimelineChartProps) {
-  // Only show the last 60 seconds of data
+export default function TimelineChart({ history, height = 100 }: TimelineChartProps) {
   const latestTs = history.length > 0 ? history[history.length - 1].timestamp : 0;
   const cutoff = latestTs - WINDOW_SEC * 1000;
   const window = history.filter((s) => s.timestamp >= cutoff);
@@ -50,20 +50,20 @@ export default function TimelineChart({ history, height = 200 }: TimelineChartPr
     labels,
     datasets: [
       {
-        label: 'Tutor Engagement',
-        data: tutorEng,
-        borderColor: '#0d6efd',
-        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+        label: 'Student',
+        data: studentEng,
+        borderColor: colors.blue,
+        backgroundColor: 'rgba(91, 138, 245, 0.08)',
         fill: true,
         tension: 0.3,
         pointRadius: 0,
         borderWidth: 2,
       },
       {
-        label: 'Student Engagement',
-        data: studentEng,
-        borderColor: '#6610f2',
-        backgroundColor: 'rgba(102, 16, 242, 0.1)',
+        label: 'Tutor',
+        data: tutorEng,
+        borderColor: colors.mint,
+        backgroundColor: 'rgba(78, 205, 160, 0.08)',
         fill: true,
         tension: 0.3,
         pointRadius: 0,
@@ -80,14 +80,26 @@ export default function TimelineChart({ history, height = 200 }: TimelineChartPr
       y: {
         min: 0,
         max: 1,
-        ticks: { callback: (v: any) => `${Math.round(v * 100)}%` },
+        ticks: {
+          callback: (v: any) => `${Math.round(v * 100)}%`,
+          font: { size: 10, family: 'Inter' },
+          color: colors.textTertiary,
+        },
+        grid: { color: colors.borderLight },
+        border: { display: false },
       },
       x: {
-        ticks: { maxTicksLimit: 10, font: { size: 10 } },
+        ticks: {
+          maxTicksLimit: 8,
+          font: { size: 10, family: 'Inter' },
+          color: colors.textTertiary,
+        },
+        grid: { display: false },
+        border: { display: false },
       },
     },
     plugins: {
-      legend: { position: 'bottom' as const, labels: { boxWidth: 12, font: { size: 11 } } },
+      legend: { display: false },
       tooltip: { mode: 'index' as const, intersect: false },
     },
   };

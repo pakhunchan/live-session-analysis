@@ -2,19 +2,27 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useMetricsEngine } from './hooks/useMetricsEngine';
 import { useStudentPipeline } from './hooks/useStudentPipeline';
 import VideoPreview from './VideoPreview';
-import PersistentMetrics from './PersistentMetrics';
-import StudentOverlays from './StudentOverlays';
+import SvgDonut from './SvgDonut';
 import SessionSetup from './SessionSetup';
 import Sidebar from './Sidebar';
-import NudgeChips from './NudgeChips';
+import BottomControls from './BottomControls';
 import PostSessionSummary from './PostSessionSummary';
 import { LiveKitSessionOrchestrator } from '../core/LiveKitSessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
 import { fetchRecommendations, generateFallbackRecommendations } from '../core/openaiRecommendations';
+import { engagementScore } from '../core/engagement';
+import { colors, font, glassmorphism, layout, radius } from './designTokens';
 import type { LiveKitSetupConfig, InputSourceType, SessionSummary } from '../types/session';
 
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
+
+function formatDuration(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
+}
 
 export default function Dashboard() {
   const tutor = useMetricsEngine();
@@ -29,7 +37,6 @@ export default function Dashboard() {
   const [mirrorTutor, setMirrorTutor] = useState(true);
   const orchestratorRef = useRef<LiveKitSessionOrchestrator | null>(null);
   const [setupLoading, setSetupLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [primaryView, setPrimaryView] = useState<'student' | 'tutor'>('student');
   const videoStageRef = useRef<HTMLDivElement>(null);
@@ -68,13 +75,8 @@ export default function Dashboard() {
   const isRunning = myRole === 'tutor' ? tutor.isRunning : student.isRunning;
   const snapshot = tutor.snapshot;
   const history = tutor.history;
-  const nudges = tutor.nudges;
   const streamManager = myRole === 'tutor' ? tutor.streamManager : student.streamManager;
 
-  // Wire DOM video elements to StreamManager for face detection.
-  // The programmatic video elements created by LiveKitInputAdapter are off-DOM
-  // and browsers can suspend their frame delivery. Using the visible DOM elements
-  // ensures MediaPipe always gets live frames.
   const handleTutorVideoElement = useCallback((el: HTMLVideoElement | null) => {
     if (el && myRole === 'tutor') streamManager.setVideoElement('tutor', el);
   }, [streamManager, myRole]);
@@ -96,14 +98,11 @@ export default function Dashboard() {
         throw new Error('VITE_LIVEKIT_URL is not configured');
       }
 
-      // Request camera/mic permission immediately in the user gesture context
-      // (Safari blocks getUserMedia if called after an async gap like fetch)
       let earlyStream: MediaStream | undefined;
       if (config.inputSource === 'webcam') {
         earlyStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       }
 
-      // Fetch token from backend
       const baseUrl = API_BASE || '';
       const participantId = `${config.role}-${Math.random().toString(36).slice(2, 8)}`;
       const res = await fetch(`${baseUrl}/api/livekit-token`, {
@@ -134,14 +133,12 @@ export default function Dashboard() {
         sm,
       );
 
-      // Set local stream immediately
       if (config.role === 'tutor') {
         setTutorStream(localStream);
       } else {
         setStudentStream(localStream);
       }
 
-      // Initialize ML detector and start pipeline
       const detector = new MediaPipeFaceDetector();
       setStatus('Loading MediaPipe model...');
       await detector.initialize();
@@ -153,15 +150,12 @@ export default function Dashboard() {
       }
       setStatus('Waiting for other participant...');
 
-      // When remote participant joins, update state (stream is for playback only —
-      // each device processes its own camera/mic, not the remote stream)
       onRemoteReady.then(async (remoteStream) => {
         if (config.role === 'tutor') {
           setStudentStream(remoteStream);
         } else {
           setTutorStream(remoteStream);
         }
-
         setStatus('Running');
       });
     } catch (err) {
@@ -176,7 +170,6 @@ export default function Dashboard() {
     if (myRole === 'tutor') {
       tutor.stop();
 
-      // Show loading state while backend computes summary + recommendations
       setSessionSummary({
         sessionId: '',
         durationMs: 0,
@@ -189,7 +182,6 @@ export default function Dashboard() {
         recommendations: [],
       });
 
-      // Fetch backend-computed summary + recommendations
       if (roomName) {
         fetchRecommendations(roomName)
           .then(({ recommendations, summary }) => {
@@ -215,7 +207,7 @@ export default function Dashboard() {
       }
     } else {
       student.stop();
-      setSessionSummary({} as SessionSummary); // signal session ended
+      setSessionSummary({} as SessionSummary);
     }
 
     orchestratorRef.current?.dispose();
@@ -228,7 +220,14 @@ export default function Dashboard() {
   const isTutorWebcam = myRole === 'tutor' && inputSource === 'webcam';
   const showSetup = !isRunning && !sessionSummary;
 
-  // When showing the setup screen, render it full-viewport without the dashboard chrome
+  // Overlay gauge values
+  const studentMetrics = snapshot?.student ?? null;
+  const studentEng = studentMetrics ? engagementScore(studentMetrics) : null;
+  const studentTalk = studentMetrics?.talkTimePercent ?? null;
+  const faceDetected = studentMetrics?.faceDetected ?? false;
+
+  const elapsed = snapshot?.session?.sessionElapsedMs ?? 0;
+
   if (showSetup) {
     return (
       <div style={{ position: 'relative', minHeight: '100vh' }}>
@@ -249,14 +248,25 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h1 style={styles.title}>Live Session Analysis</h1>
-        <div style={styles.headerRight}>
-          <span style={{
-            ...styles.statusDot,
-            background: isRunning ? '#198754' : '#6c757d',
-          }} />
+    <div style={styles.shell}>
+      {/* Pulsing dot keyframes */}
+      <style>{`@keyframes pulse-live{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
+
+      {/* ===== TOP BAR ===== */}
+      <header style={styles.topbar}>
+        <div style={styles.topbarLeft}>
+          <span style={styles.logo}>LSA</span>
+          <div style={styles.sessionInfo}>
+            <span style={styles.sessionLabel}>
+              {roomName ?? 'Session'}
+            </span>
+            <span style={styles.elapsedBadge}>
+              <span style={styles.liveDot} />
+              {formatDuration(elapsed)}
+            </span>
+          </div>
+        </div>
+        <div style={styles.topbarRight}>
           <span style={styles.statusText}>{status}</span>
         </div>
       </header>
@@ -277,10 +287,10 @@ export default function Dashboard() {
       {!isRunning && sessionSummary && myRole === 'student' && (
         <div style={{ textAlign: 'center', padding: '3rem 1rem' }}>
           <h2>Session Ended</h2>
-          <p style={{ color: '#6c757d' }}>The tutor has ended the session. Thank you!</p>
+          <p style={{ color: colors.textSecondary }}>The tutor has ended the session. Thank you!</p>
           <button
             onClick={() => { setSessionSummary(null); tutor.resetHistory(); }}
-            style={styles.stopBtn}
+            style={styles.newSessionBtn}
           >
             New Session
           </button>
@@ -288,8 +298,9 @@ export default function Dashboard() {
       )}
 
       {isRunning && (
-        <div style={styles.sessionLayout}>
-          <div style={styles.mainArea}>
+        <div style={styles.mainLayout}>
+          {/* Video area */}
+          <div style={styles.videoArea}>
             <div
               ref={videoStageRef}
               style={{
@@ -297,17 +308,15 @@ export default function Dashboard() {
                 ...(isFullscreen ? { borderRadius: 0, width: '100%', height: '100%' } : {}),
               }}
             >
-              {myRole === 'tutor' && <NudgeChips bus={tutor.eventBus} />}
-
               {/* Waiting overlay */}
               {status === 'Waiting for other participant...' && (
                 <div style={styles.waitingOverlay}>
-                  <p style={styles.waitingText}>Waiting for other participant to join...</p>
+                  <p style={styles.waitingText}>Waiting for participant...</p>
                   <p style={styles.waitingHint}>Share the room name with them</p>
                 </div>
               )}
 
-              {/* Main (big) video */}
+              {/* Main video */}
               <VideoPreview
                 stream={primaryView === 'student' ? studentStream : tutorStream}
                 label=""
@@ -315,10 +324,35 @@ export default function Dashboard() {
                 mirrored={primaryView === 'tutor' && isTutorWebcam && mirrorTutor}
                 onVideoElement={primaryView === 'student' ? handleStudentVideoElement : handleTutorVideoElement}
               />
-              {myRole === 'tutor' && primaryView === 'student' && <StudentOverlays metrics={snapshot?.student ?? null} />}
-              {myRole === 'tutor' && <PersistentMetrics student={snapshot?.student ?? null} />}
-              {/* Mini overlay */}
-              <div style={styles.miniOverlay}>
+
+              {/* Overlay gauges — top-left */}
+              {myRole === 'tutor' && primaryView === 'student' && (
+                <div style={styles.overlayGauges}>
+                  <SvgDonut value={studentEng} size={40} strokeWidth={4} label="Engage" dark />
+                  <SvgDonut value={studentTalk} size={40} strokeWidth={4} label="Talk" dark />
+                  {/* Face indicator */}
+                  <div style={{
+                    ...styles.faceIndicator,
+                    borderColor: faceDetected ? colors.green : colors.red,
+                  }}>
+                    <div style={{
+                      ...styles.faceIndicatorDot,
+                      background: faceDetected ? colors.green : colors.red,
+                    }} />
+                    <span style={styles.faceIndicatorText}>
+                      {faceDetected ? 'Face' : 'No Face'}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Student name badge — bottom-left */}
+              {primaryView === 'student' && (
+                <div style={styles.nameBadge}>Student</div>
+              )}
+
+              {/* PiP self-view — bottom-right */}
+              <div style={styles.pipOverlay}>
                 <VideoPreview
                   stream={primaryView === 'student' ? tutorStream : studentStream}
                   label={primaryView === 'student' ? 'You' : 'Student'}
@@ -326,46 +360,32 @@ export default function Dashboard() {
                   mirrored={primaryView === 'student' && isTutorWebcam && mirrorTutor}
                   onVideoElement={primaryView === 'student' ? handleTutorVideoElement : handleStudentVideoElement}
                 />
-                {myRole === 'tutor' && primaryView === 'tutor' && <StudentOverlays metrics={snapshot?.student ?? null} />}
-                {isTutorWebcam && primaryView === 'student' && (
-                  <button
-                    onClick={() => setMirrorTutor(m => !m)}
-                    style={{ ...styles.miniFullscreenBtn, right: 28 }}
-                    title={mirrorTutor ? 'Unmirror' : 'Mirror'}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={mirrorTutor ? '#60a5fa' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="18 8 22 8 22 8" /><polyline points="18 5 22 8 18 11" /><line x1="2" y1="8" x2="22" y2="8" />
-                      <polyline points="6 19 2 16 6 13" /><line x1="2" y1="16" x2="22" y2="16" />
-                    </svg>
-                  </button>
-                )}
-                <button
-                  onClick={swapPrimaryView}
-                  style={styles.miniFullscreenBtn}
-                  title="Swap to main view"
-                >
+                <button onClick={swapPrimaryView} style={styles.pipSwapBtn} title="Swap to main view">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="12" y1="17" x2="12" y2="22" />
-                    <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h-6v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <polyline points="9 21 3 21 3 15" />
+                    <line x1="21" y1="3" x2="14" y2="10" />
+                    <line x1="3" y1="21" x2="10" y2="14" />
                   </svg>
                 </button>
               </div>
+
+              {/* Fullscreen button — top-right */}
               <div style={styles.topRightControls}>
-                {isTutorWebcam && primaryView === 'tutor' && (
+                {isTutorWebcam && (
                   <button
                     onClick={() => setMirrorTutor(m => !m)}
                     style={styles.topRightBtn}
                     title={mirrorTutor ? 'Unmirror' : 'Mirror'}
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={mirrorTutor ? '#60a5fa' : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={mirrorTutor ? colors.blue : '#fff'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="18 8 22 8 22 8" /><polyline points="18 5 22 8 18 11" /><line x1="2" y1="8" x2="22" y2="8" />
                       <polyline points="6 19 2 16 6 13" /><line x1="2" y1="16" x2="22" y2="16" />
                     </svg>
                   </button>
                 )}
                 <button onClick={toggleFullscreen} style={styles.topRightBtn} title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="15 3 21 3 21 9" />
                     <polyline points="9 3 3 3 3 9" />
                     <polyline points="15 21 21 21 21 15" />
@@ -374,120 +394,141 @@ export default function Dashboard() {
                 </button>
               </div>
             </div>
-
-            <div style={styles.belowVideoControls}>
-              <label style={styles.meshToggle}>
-                <input
-                  type="checkbox"
-                  checked={showMesh}
-                  onChange={(e) => setShowMesh(e.target.checked)}
-                />
-                {' '}Show Face Mesh
-              </label>
-              <div style={styles.centerControls}>
-                <button onClick={toggleMute} style={styles.muteBtn} title={muted ? 'Unmute' : 'Mute'}>
-                  {muted ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc3545" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="1" y1="1" x2="23" y2="23" />
-                      <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                      <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.12 1.5-.35 2.18" />
-                      <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
-                    </svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      <line x1="12" y1="19" x2="12" y2="23" /><line x1="8" y1="23" x2="16" y2="23" />
-                    </svg>
-                  )}
-                  <span style={{ color: muted ? '#dc3545' : '#fff', fontSize: '0.85rem', fontWeight: 500 }}>
-                    {muted ? 'Unmute' : 'Mute'}
-                  </span>
-                </button>
-                <button onClick={handleStop} style={styles.stopBtn}>
-                  End Session
-                </button>
-              </div>
-            </div>
           </div>
 
+          {/* Sidebar */}
           {myRole === 'tutor' && (
             <Sidebar
               snapshot={snapshot}
               history={history}
               latencyBreakdown={tutor.latencyBreakdown}
-              isOpen={sidebarOpen}
-              onToggle={() => setSidebarOpen(!sidebarOpen)}
+              eventBus={tutor.eventBus}
             />
           )}
         </div>
+      )}
+
+      {/* ===== BOTTOM CONTROLS ===== */}
+      {isRunning && (
+        <BottomControls
+          muted={muted}
+          showMesh={showMesh}
+          onToggleMute={toggleMute}
+          onToggleMesh={() => setShowMesh(m => !m)}
+          onEndSession={handleStop}
+        />
       )}
     </div>
   );
 }
 
 const styles: Record<string, React.CSSProperties> = {
-  container: {
-    maxWidth: '100%',
-    margin: '0 auto',
-    padding: '1rem',
-    fontFamily: 'system-ui, -apple-system, sans-serif',
-  },
-  header: {
+  shell: {
     display: 'flex',
+    flexDirection: 'column',
+    height: '100vh',
+    overflow: 'hidden',
+    fontFamily: font,
+    background: `linear-gradient(175deg, ${colors.bgStart} 0%, ${colors.bgEnd} 100%)`,
+    color: colors.textPrimary,
+  },
+
+  // ── Top Bar ──
+  topbar: {
+    display: 'flex',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '1rem',
-    paddingBottom: '0.75rem',
-    borderBottom: '1px solid #dee2e6',
+    height: layout.topbarH,
+    padding: '0 20px',
+    ...glassmorphism(0.72),
+    borderBottom: `1px solid ${colors.borderLight}`,
+    flexShrink: 0,
+    zIndex: 100,
   },
-  title: {
-    margin: 0,
-    fontSize: '1.4rem',
-  },
-  headerRight: {
+  topbarLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: '0.5rem',
+    gap: 16,
   },
-  statusDot: {
-    width: 8,
-    height: 8,
+  logo: {
+    fontSize: '1.1rem',
+    fontWeight: 700,
+    color: colors.blue,
+    letterSpacing: '-0.02em',
+  },
+  sessionInfo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sessionLabel: {
+    fontSize: '0.82rem',
+    fontWeight: 500,
+    color: colors.textSecondary,
+  },
+  elapsedBadge: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    padding: '3px 10px',
+    background: colors.surfaceHover,
+    borderRadius: 8,
+    fontSize: '0.78rem',
+    fontWeight: 600,
+    color: colors.textPrimary,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
     borderRadius: '50%',
-    display: 'inline-block',
+    background: colors.green,
+    animation: 'pulse-live 2s ease-in-out infinite',
+  },
+  topbarRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
   },
   statusText: {
-    fontSize: '0.85rem',
-    color: '#6c757d',
+    fontSize: '0.78rem',
+    color: colors.textTertiary,
   },
+
+  // ── Errors ──
   errorBanner: {
     padding: '0.75rem 1rem',
     background: '#f8d7da',
     color: '#842029',
-    borderRadius: '6px',
-    marginBottom: '1rem',
-    fontSize: '0.9rem',
+    borderRadius: 6,
+    margin: '8px 20px 0',
+    fontSize: '0.85rem',
   },
-  sessionLayout: {
+
+  // ── Main Layout ──
+  mainLayout: {
     display: 'flex',
+    flex: 1,
+    minHeight: 0,
     gap: 0,
-    position: 'relative',
-    height: 'calc(100vh - 6rem)',
   },
-  mainArea: {
+  videoArea: {
     flex: 1,
     minWidth: 0,
     display: 'flex',
     flexDirection: 'column',
+    padding: 12,
   },
   videoStage: {
     position: 'relative',
-    borderRadius: '8px',
+    borderRadius: radius.md,
     overflow: 'hidden',
-    background: '#000',
+    background: '#0a0a0a',
     flex: 1,
     minHeight: 0,
   },
+
+  // ── Waiting ──
   waitingOverlay: {
     position: 'absolute',
     top: 0,
@@ -513,104 +554,121 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '0.85rem',
     margin: '0.5rem 0 0',
   },
-  miniOverlay: {
+
+  // ── Overlay Gauges ──
+  overlayGauges: {
     position: 'absolute',
-    bottom: 12,
-    right: 12,
-    width: 200,
-    aspectRatio: '4 / 3',
-    borderRadius: '8px',
-    overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
-    border: '2px solid rgba(255,255,255,0.3)',
-    zIndex: 2,
-  },
-  bottomLeftControls: {
-    position: 'absolute',
-    bottom: 12,
-    left: 12,
+    top: 14,
+    left: 14,
     display: 'flex',
-    gap: '6px',
+    alignItems: 'center',
+    gap: 10,
+    zIndex: 3,
+    background: 'rgba(0,0,0,0.35)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    borderRadius: radius.sm,
+    border: '1px solid rgba(255,255,255,0.08)',
+    padding: '8px 12px',
+  },
+  faceIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    background: 'rgba(0,0,0,0.35)',
+    backdropFilter: 'blur(16px)',
+    borderRadius: radius.sm,
+    border: '1px solid rgba(255,255,255,0.08)',
+    padding: '5px 10px',
+  },
+  faceIndicatorDot: {
+    width: 6,
+    height: 6,
+    borderRadius: '50%',
+  },
+  faceIndicatorText: {
+    fontSize: '0.65rem',
+    color: 'rgba(255,255,255,0.7)',
+    fontWeight: 500,
+  },
+
+  // ── Name Badge ──
+  nameBadge: {
+    position: 'absolute',
+    bottom: 14,
+    left: 14,
+    padding: '6px 14px',
+    background: 'rgba(0,0,0,0.4)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    color: '#fff',
+    borderRadius: 10,
+    fontSize: '0.82rem',
+    fontWeight: 600,
+    border: '1px solid rgba(255,255,255,0.1)',
+    zIndex: 3,
+  },
+
+  // ── PiP ──
+  pipOverlay: {
+    position: 'absolute',
+    bottom: 14,
+    right: 14,
+    width: 180,
+    aspectRatio: '4 / 3',
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+    border: '2px solid rgba(255,255,255,0.15)',
     zIndex: 2,
   },
-  controlToggle: {
-    fontSize: '0.75rem',
-    color: '#fff',
-    cursor: 'pointer',
+  pipSwapBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
     background: 'rgba(0,0,0,0.5)',
-    padding: '4px 8px',
-    borderRadius: '4px',
+    border: 'none',
+    borderRadius: 6,
+    padding: '4px 5px',
+    cursor: 'pointer',
+    zIndex: 3,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+
+  // ── Top-right video controls ──
   topRightControls: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 12,
+    right: 12,
     display: 'flex',
     gap: 6,
     zIndex: 3,
   },
   topRightBtn: {
-    background: 'rgba(0,0,0,0.5)',
-    border: 'none',
-    borderRadius: '6px',
-    width: 40,
-    height: 40,
+    background: 'rgba(0,0,0,0.4)',
+    backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: 10,
+    width: 36,
+    height: 36,
     cursor: 'pointer',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  miniFullscreenBtn: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    background: 'rgba(0,0,0,0.5)',
-    border: 'none',
-    borderRadius: '4px',
-    padding: '3px 4px',
-    cursor: 'pointer',
-    zIndex: 3,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  belowVideoControls: {
-    display: 'flex',
-    alignItems: 'center',
-    padding: '0.5rem 0',
-    flexShrink: 0,
-  },
-  meshToggle: {
-    fontSize: '0.8rem',
-    color: '#6c757d',
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-  },
-  centerControls: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '0.75rem',
-    flex: 1,
-  },
-  muteBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '0.6rem 1.2rem',
-    background: '#343a40',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: 'pointer',
-  },
-  stopBtn: {
+
+  // ── Post-session ──
+  newSessionBtn: {
     padding: '0.6rem 1.5rem',
-    background: '#dc3545',
+    background: colors.coral,
     color: '#fff',
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: radius.xs,
     cursor: 'pointer',
     fontSize: '0.9rem',
     fontWeight: 500,
+    marginTop: '1rem',
   },
 };

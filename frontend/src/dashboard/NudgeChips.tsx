@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { colors, font, card as cardStyle } from './designTokens';
 import type { Nudge } from '../types';
 import { EventBus } from '../core/EventBus';
 import { EventType } from '../types';
@@ -7,22 +8,30 @@ interface NudgeChipsProps {
   bus: EventBus;
 }
 
-const MAX_VISIBLE = 3;
-const DISMISS_MS = 8_000;
+const MAX_NUDGES = 20;
 
-const PRIORITY_COLORS: Record<string, { bg: string; border: string }> = {
-  high:   { bg: 'rgba(220, 53, 69, 0.9)',  border: '#dc3545' },
-  medium: { bg: 'rgba(255, 193, 7, 0.9)',  border: '#ffc107' },
-  low:    { bg: 'rgba(25, 135, 84, 0.9)',   border: '#198754' },
+const PRIORITY_STYLES: Record<string, { bg: string; iconBg: string; icon: string }> = {
+  high:   { bg: colors.coralSoft, iconBg: colors.coral, icon: '!' },
+  medium: { bg: colors.amberSoft, iconBg: colors.amber, icon: '!' },
+  low:    { bg: colors.mintSoft,  iconBg: colors.mint,  icon: '\u2713' },
 };
+
+function timeAgo(ts: number): string {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  return `${min}m ago`;
+}
 
 export default function NudgeChips({ bus }: NudgeChipsProps) {
   const [nudges, setNudges] = useState<Nudge[]>([]);
+  const [open, setOpen] = useState(true);
+  const [, setTick] = useState(0);
 
   const handleNudge = useCallback((event: { payload: Nudge }) => {
     setNudges((prev) => {
       const next = [event.payload, ...prev];
-      return next.slice(0, MAX_VISIBLE);
+      return next.slice(0, MAX_NUDGES);
     });
   }, []);
 
@@ -31,87 +40,136 @@ export default function NudgeChips({ bus }: NudgeChipsProps) {
     return unsub;
   }, [bus, handleNudge]);
 
-  // Auto-dismiss each nudge after DISMISS_MS
+  // Update "time ago" labels every 10s
   useEffect(() => {
     if (nudges.length === 0) return;
-    const oldest = nudges[nudges.length - 1];
-    const age = Date.now() - oldest.timestamp;
-    const remaining = Math.max(0, DISMISS_MS - age);
-    const timer = setTimeout(() => {
-      setNudges((prev) => prev.slice(0, -1));
-    }, remaining);
-    return () => clearTimeout(timer);
-  }, [nudges]);
-
-  const dismiss = (id: string) => {
-    setNudges((prev) => prev.filter((n) => n.id !== id));
-  };
-
-  if (nudges.length === 0) return null;
+    const timer = setInterval(() => setTick((t) => t + 1), 10_000);
+    return () => clearInterval(timer);
+  }, [nudges.length]);
 
   return (
-    <div style={styles.container}>
-      {nudges.map((nudge) => {
-        const colors = PRIORITY_COLORS[nudge.priority] ?? PRIORITY_COLORS.low;
-        return (
-          <div
-            key={nudge.id}
-            style={{
-              ...styles.chip,
-              background: colors.bg,
-              borderLeft: `3px solid ${colors.border}`,
-            }}
-            role="status"
-            aria-live="polite"
-          >
-            <span style={styles.message}>{nudge.message}</span>
-            <button
-              onClick={() => dismiss(nudge.id)}
-              style={styles.dismissBtn}
-              aria-label="Dismiss"
-            >
-              ×
-            </button>
-          </div>
-        );
-      })}
+    <div style={{ ...cardStyle, padding: 0 }}>
+      <button style={s.header} onClick={() => setOpen(!open)}>
+        <span style={s.title}>Coaching Nudges</span>
+        {nudges.length > 0 && <span style={s.badge}>{nudges.length}</span>}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke={colors.textTertiary}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          style={{
+            transform: open ? 'rotate(90deg)' : 'none',
+            transition: 'transform 0.25s ease',
+          }}
+        >
+          <path d="M9 6l6 6-6 6" />
+        </svg>
+      </button>
+
+      <div style={{
+        maxHeight: open ? 600 : 0,
+        overflow: 'hidden',
+        transition: 'max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}>
+        <div style={s.body}>
+          {nudges.length === 0 ? (
+            <div style={s.empty}>No nudges yet</div>
+          ) : (
+            nudges.map((nudge) => {
+              const ps = PRIORITY_STYLES[nudge.priority] ?? PRIORITY_STYLES.low;
+              return (
+                <div key={nudge.id} style={{ ...s.item, background: ps.bg }}>
+                  <div style={{ ...s.icon, background: ps.iconBg }}>{ps.icon}</div>
+                  <div style={s.text}>{nudge.message}</div>
+                  <div style={s.time}>{timeAgo(nudge.timestamp)}</div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    position: 'absolute',
-    top: 50,
-    left: 12,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    zIndex: 5,
-    maxWidth: '340px',
-  },
-  chip: {
+const s: Record<string, React.CSSProperties> = {
+  header: {
+    width: '100%',
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    padding: '8px 12px',
-    borderRadius: '8px',
-    backdropFilter: 'blur(8px)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-  },
-  message: {
-    color: '#fff',
-    fontSize: '0.8rem',
-    fontWeight: 600,
-    flex: 1,
-  },
-  dismissBtn: {
+    justifyContent: 'space-between',
+    gap: 8,
+    padding: '12px 16px',
     background: 'none',
     border: 'none',
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: '1.1rem',
     cursor: 'pointer',
-    padding: '0 2px',
-    lineHeight: 1,
+    fontFamily: font,
+  },
+  title: {
+    fontSize: '0.78rem',
+    fontWeight: 600,
+    color: colors.textSecondary,
+    textTransform: 'uppercase' as const,
+    letterSpacing: '0.06em',
+    flex: 1,
+    textAlign: 'left' as const,
+  },
+  badge: {
+    background: colors.coral,
+    color: '#fff',
+    fontSize: '0.65rem',
+    fontWeight: 700,
+    padding: '2px 7px',
+    borderRadius: 10,
+    lineHeight: '1.2',
+  },
+  body: {
+    padding: '0 12px 12px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 6,
+    maxHeight: 250,
+    overflowY: 'auto' as const,
+  },
+  empty: {
+    fontSize: '0.82rem',
+    color: colors.textTertiary,
+    textAlign: 'center' as const,
+    padding: '4px 0',
+  },
+  item: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: '8px 10px',
+    borderRadius: 10,
+  },
+  icon: {
+    width: 22,
+    height: 22,
+    borderRadius: '50%',
+    color: '#fff',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+    marginTop: 1,
+  },
+  text: {
+    flex: 1,
+    fontSize: '0.78rem',
+    color: colors.textPrimary,
+    lineHeight: 1.4,
+  },
+  time: {
+    fontSize: '0.65rem',
+    color: colors.textTertiary,
+    whiteSpace: 'nowrap' as const,
+    marginTop: 2,
   },
 };
