@@ -10,7 +10,6 @@ import type {
   LatencyTrace,
 } from '../types';
 import { engagementScore } from './engagement';
-import { InterruptionDetector } from '../audio/interruptionDetector';
 
 export interface MetricsEngineConfig {
   sessionId: string;
@@ -175,7 +174,6 @@ export class MetricsEngine {
   private config: MetricsEngineConfig;
   private startTime: number = 0;
   private history: MetricSnapshot[] = [];
-  private interruptionDetector = new InterruptionDetector();
   private currentSilenceDurationMs = 0;
   private lastSilenceCheckTime = 0;
 
@@ -273,9 +271,6 @@ export class MetricsEngine {
     }
     this.lastSilenceCheckTime = now;
 
-    // Use the data point's timestamp (server-stamped for remote, local for own)
-    const ts = dp.serverTimestamp ?? dp.timestamp;
-    this.interruptionDetector.update(tutorSpeaking, studentSpeaking, ts);
   }
 
   getHistory(): MetricSnapshot[] {
@@ -295,7 +290,7 @@ export class MetricsEngine {
       now,
       this.tutorAcc,
       this.studentAcc,
-      this.interruptionDetector.getCounts(),
+      { student: 0, tutor: 0, accident: 0 },
       this.currentSilenceDurationMs,
       sessionElapsedMs,
       this.history,
