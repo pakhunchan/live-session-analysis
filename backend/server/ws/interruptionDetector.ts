@@ -40,6 +40,7 @@ export class InterruptionDetector {
   // Per-participant state
   private speakStartMs: Record<ParticipantRole, number | null> = { tutor: null, student: null };
   private wasSpeaking: Record<ParticipantRole, boolean> = { tutor: false, student: false };
+  private silenceSince: Record<ParticipantRole, number | null> = { tutor: null, student: null };
 
   // Overlap tracking
   private overlapStartMs: number | null = null;
@@ -56,6 +57,7 @@ export class InterruptionDetector {
   private readonly ESTABLISHED_SPEAKER_MS = 1000;
   private readonly COOLDOWN_CONTINUOUS_MS = 3000;
   private readonly COOLDOWN_PAUSED_MS = 2000;
+  private readonly SPEECH_GAP_DEBOUNCE_MS = 1000;
 
   /**
    * Ingest an audio data point. correctedTs = dp.timestamp + clockOffset.
@@ -119,18 +121,39 @@ export class InterruptionDetector {
   private step(dp: AudioDataPoint): void {
     const { participant: role, isSpeaking, correctedTs: ts } = dp;
 
-    // Detect start/stop transitions
+    // Debounced start/stop transitions — ignore brief gaps shorter than SPEECH_GAP_DEBOUNCE_MS
     const wasSpk = this.wasSpeaking[role];
-    if (isSpeaking && !wasSpk) {
-      this.speakStartMs[role] = ts;
-    } else if (!isSpeaking && wasSpk) {
-      this.speakStartMs[role] = null;
-      // Track if the interrupted speaker from the last interruption paused
-      if (role === this.lastInterruptedSpeaker) {
-        this.interruptedSpeakerPausedSince = true;
+
+    if (isSpeaking) {
+      // Speech resumed — cancel any pending silence
+      this.silenceSince[role] = null;
+
+      if (!wasSpk) {
+        // True onset: only set speakStartMs if we don't already have one
+        // (preserves the original start across debounced gaps)
+        if (this.speakStartMs[role] === null) {
+          this.speakStartMs[role] = ts;
+        }
       }
+      this.wasSpeaking[role] = true;
+    } else {
+      // Not speaking — start or continue silence tracking
+      if (wasSpk && this.silenceSince[role] === null) {
+        this.silenceSince[role] = ts;
+      }
+
+      // Only commit the stop if silence has lasted beyond debounce threshold
+      if (this.silenceSince[role] !== null && (ts - this.silenceSince[role]) >= this.SPEECH_GAP_DEBOUNCE_MS) {
+        this.speakStartMs[role] = null;
+        this.silenceSince[role] = null;
+        this.wasSpeaking[role] = false;
+
+        if (role === this.lastInterruptedSpeaker) {
+          this.interruptedSpeakerPausedSince = true;
+        }
+      }
+      // Otherwise: still within debounce window, keep wasSpeaking[role] = true
     }
-    this.wasSpeaking[role] = isSpeaking;
 
     const bothSpeaking = this.wasSpeaking.tutor && this.wasSpeaking.student;
 
