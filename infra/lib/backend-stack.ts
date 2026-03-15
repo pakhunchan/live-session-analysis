@@ -1,9 +1,13 @@
 import * as cdk from 'aws-cdk-lib';
 import * as autoscaling from 'aws-cdk-lib/aws-autoscaling';
+import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ecsPatterns from 'aws-cdk-lib/aws-ecs-patterns';
+import * as elbv2 from 'aws-cdk-lib/aws-elasticloadbalancingv2';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as route53 from 'aws-cdk-lib/aws-route53';
+import * as route53targets from 'aws-cdk-lib/aws-route53-targets';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
@@ -132,6 +136,38 @@ export class BackendStack extends cdk.Stack {
       'ALB to ECS dynamic ports',
     );
 
+    // HTTPS listener with ACM certificate
+    const certificate = certificatemanager.Certificate.fromCertificateArn(
+      this,
+      'Certificate',
+      'arn:aws:acm:us-west-2:044251533722:certificate/267e66bf-6ea0-4b34-8370-5d84786c447b',
+    );
+
+    service.loadBalancer.addListener('HttpsListener', {
+      port: 443,
+      protocol: elbv2.ApplicationProtocol.HTTPS,
+      certificates: [certificate],
+      defaultTargetGroups: [service.targetGroup],
+    });
+
+    // Route53 A record: lsa-api.pakhunchan.com → ALB
+    const hostedZone = route53.HostedZone.fromHostedZoneAttributes(
+      this,
+      'HostedZone',
+      {
+        hostedZoneId: 'Z0255377ZXTWG9Y34QQT',
+        zoneName: 'pakhunchan.com',
+      },
+    );
+
+    new route53.ARecord(this, 'ApiDnsRecord', {
+      zone: hostedZone,
+      recordName: 'lsa-api',
+      target: route53.RecordTarget.fromAlias(
+        new route53targets.LoadBalancerTarget(service.loadBalancer),
+      ),
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'AlbDns', {
       value: service.loadBalancer.loadBalancerDnsName,
@@ -139,7 +175,7 @@ export class BackendStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'AlbUrl', {
-      value: `http://${service.loadBalancer.loadBalancerDnsName}`,
+      value: 'https://lsa-api.pakhunchan.com',
       description: 'ALB URL',
     });
   }
