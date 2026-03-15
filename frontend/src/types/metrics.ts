@@ -35,15 +35,22 @@ export interface EnergyBreakdown {
   pitchVariance: number;     // vocal expressiveness 0-1 (CV of pitch history)
 }
 
+export interface DataStatus {
+  videoStale: boolean;
+  audioStale: boolean;
+  lowConfidence: boolean;
+}
+
 export interface ParticipantMetrics {
-  eyeContactScore: number;    // 0-1
-  talkTimePercent: number;    // 0-1
-  energyScore: number;        // 0-1
-  isSpeaking: boolean;
+  eyeContactScore: number | null;    // 0-1, null when video unavailable
+  talkTimePercent: number | null;    // 0-1, null when audio stale
+  energyScore: number | null;        // 0-1, null when inputs unavailable
+  isSpeaking: boolean | null;        // null when audio stale
   faceDetected: boolean;
   faceConfidence: number;     // 0-1
   distractionDurationMs: number;  // continuous low eye-contact duration
-  energyBreakdown?: EnergyBreakdown;
+  energyBreakdown?: EnergyBreakdown | null;
+  dataStatus?: DataStatus;
 }
 
 export interface InterruptionCounts {

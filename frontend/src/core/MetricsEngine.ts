@@ -7,9 +7,12 @@ import type {
   EngagementTrend,
   EnergyBreakdown,
   InterruptionCounts,
+  DataStatus,
   LatencyTrace,
 } from '../types';
 import { engagementScore } from './engagement';
+
+const STALE_THRESHOLD_MS = 5000;
 
 export interface MetricsEngineConfig {
   sessionId: string;
@@ -59,8 +62,8 @@ export function computeSnapshot(
   trendWindowSize: number,
   distractionDurations: Record<ParticipantRole, number> = { tutor: 0, student: 0 },
 ): MetricSnapshot {
-  const tutor = buildParticipantMetrics(tutorAcc, sessionElapsedMs, distractionDurations.tutor);
-  const student = buildParticipantMetrics(studentAcc, sessionElapsedMs, distractionDurations.student);
+  const tutor = buildParticipantMetrics(tutorAcc, sessionElapsedMs, distractionDurations.tutor, timestamp);
+  const student = buildParticipantMetrics(studentAcc, sessionElapsedMs, distractionDurations.student, timestamp);
 
   const session: SessionMetrics = {
     interruptions,
@@ -76,22 +79,35 @@ function buildParticipantMetrics(
   acc: ParticipantAccumulator,
   sessionElapsedMs: number,
   distractionDurationMs: number = 0,
+  now: number = Date.now(),
 ): ParticipantMetrics {
   const video = acc.latestVideo;
   const audio = acc.latestAudio;
 
-  const faceDetected = video?.faceDetected ?? false;
-  const faceConfidence = video?.faceConfidence ?? 0;
+  // "Stale" only applies when data was previously received but stopped arriving.
+  // Never-received data uses default values (0/false), not null.
+  const videoStale = video !== null && (now - video.timestamp) > STALE_THRESHOLD_MS;
+  const audioStale = audio !== null && (now - audio.timestamp) > STALE_THRESHOLD_MS;
+
+  const faceDetected = videoStale ? false : (video?.faceDetected ?? false);
+  const faceConfidence = videoStale ? 0 : (video?.faceConfidence ?? 0);
+
+  const dataStatus: DataStatus = {
+    videoStale,
+    audioStale,
+    lowConfidence: !videoStale && faceDetected && faceConfidence < 0.5,
+  };
 
   return {
-    eyeContactScore: faceDetected ? (video?.eyeContact ?? 0) : 0,
-    talkTimePercent: sessionElapsedMs > 0 ? acc.speakingMs / sessionElapsedMs : 0,
-    energyScore: computeEnergy(video, audio),
-    isSpeaking: audio?.isSpeaking ?? false,
+    eyeContactScore: videoStale ? null : (faceDetected ? (video?.eyeContact ?? 0) : 0),
+    talkTimePercent: audioStale ? null : (sessionElapsedMs > 0 ? acc.speakingMs / sessionElapsedMs : 0),
+    energyScore: videoStale && audioStale ? null : computeEnergy(videoStale ? null : video, audioStale ? null : audio),
+    isSpeaking: audioStale ? null : (audio?.isSpeaking ?? false),
     faceDetected,
     faceConfidence,
     distractionDurationMs,
-    energyBreakdown: buildEnergyBreakdown(video, audio),
+    energyBreakdown: videoStale && audioStale ? null : buildEnergyBreakdown(videoStale ? null : video, audioStale ? null : audio),
+    dataStatus,
   };
 }
 
@@ -121,7 +137,8 @@ function buildEnergyBreakdown(
 function computeEnergy(
   video: MetricDataPoint | null,
   audio: MetricDataPoint | null,
-): number {
+): number | null {
+  if (!video && !audio) return null;
   const expressionEnergy = video?.expressionEnergy ?? 0;
   const voiceEnergy = audio?.voiceEnergy ?? 0;
   // Weighted: 20% expression, 80% voice when both present
@@ -145,10 +162,15 @@ export function computeTrend(
   const window = recentSnapshots.slice(-windowSize);
   if (window.length < 2) return 'stable';
 
-  // Average engagement via shared engagementScore formula
-  const scores = window.map((s) => {
-    return (engagementScore(s.tutor) + engagementScore(s.student)) / 2;
-  });
+  // Average engagement via shared engagementScore formula, skipping null scores
+  const scores = window
+    .map((s) => {
+      const t = engagementScore(s.tutor);
+      const st = engagementScore(s.student);
+      if (t === null || st === null) return null;
+      return (t + st) / 2;
+    })
+    .filter((v): v is number => v !== null);
 
   // Simple linear regression slope
   const n = scores.length;
