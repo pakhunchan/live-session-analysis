@@ -27,8 +27,10 @@ export default function NudgeChips({ bus }: NudgeChipsProps) {
   const [nudges, setNudges] = useState<Nudge[]>([]);
   const [open, setOpen] = useState(true);
   const [, setTick] = useState(0);
+  const [lastNudgeAt, setLastNudgeAt] = useState(0);
 
   const handleNudge = useCallback((event: { payload: Nudge }) => {
+    setLastNudgeAt(Date.now());
     setNudges((prev) => {
       const next = [event.payload, ...prev];
       return next.slice(0, MAX_NUDGES);
@@ -40,6 +42,15 @@ export default function NudgeChips({ bus }: NudgeChipsProps) {
     return unsub;
   }, [bus, handleNudge]);
 
+  // Clear "recent" highlight after 10s
+  const [isRecent, setIsRecent] = useState(false);
+  useEffect(() => {
+    if (lastNudgeAt === 0) return;
+    setIsRecent(true);
+    const timer = setTimeout(() => setIsRecent(false), 10_000);
+    return () => clearTimeout(timer);
+  }, [lastNudgeAt]);
+
   // Update "time ago" labels every 10s
   useEffect(() => {
     if (nudges.length === 0) return;
@@ -48,7 +59,16 @@ export default function NudgeChips({ bus }: NudgeChipsProps) {
   }, [nudges.length]);
 
   return (
-    <div style={{ ...cardStyle, padding: 0 }}>
+    <>
+    <style>{`@keyframes nudge-blink{0%,100%{border-color:${colors.coral}}50%{border-color:transparent}}`}</style>
+    <div style={{
+      ...cardStyle,
+      padding: 0,
+      ...(isRecent ? {
+        border: `2px solid ${colors.coral}`,
+        animation: 'nudge-blink 0.5s ease-in-out 3',
+      } : {}),
+    }}>
       <button style={s.header} onClick={() => setOpen(!open)}>
         <span style={s.title}>Coaching Nudges</span>
         {nudges.length > 0 && <span style={s.badge}>{nudges.length}</span>}
@@ -92,6 +112,7 @@ export default function NudgeChips({ bus }: NudgeChipsProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
