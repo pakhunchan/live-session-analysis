@@ -107,6 +107,7 @@ function buildParticipantMetrics(
     eyeContactScore: videoStale ? null : (faceDetected ? (video?.eyeContact ?? 0) : 0),
     talkTimePercent: audioStale ? null : (sessionElapsedMs > 0 ? acc.speakingMs / sessionElapsedMs : 0),
     energyScore: videoStale && audioStale ? null : computeEnergy(videoStale ? null : video, audioStale ? null : audio),
+    expressionEnergy: videoStale ? null : (video?.expressionEnergy ?? 0),
     isSpeaking: audioStale ? null : (audio?.isSpeaking ?? false),
     faceDetected,
     faceConfidence,
@@ -146,12 +147,10 @@ function computeEnergy(
   if (!video && !audio) return null;
   const expressionEnergy = video?.expressionEnergy ?? 0;
   const voiceEnergy = audio?.voiceEnergy ?? 0;
-  // Weighted: 20% expression, 80% voice when both present
-  if (video?.faceDetected && audio) {
-    return expressionEnergy * 0.2 + voiceEnergy * 0.8;
-  }
+  const isSpeaking = audio?.isSpeaking ?? false;
+  // When talking: use voice energy. When silent: use expression energy.
+  if (isSpeaking) return voiceEnergy;
   if (video?.faceDetected) return expressionEnergy;
-  if (audio) return voiceEnergy;
   return 0;
 }
 

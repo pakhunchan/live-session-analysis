@@ -49,6 +49,7 @@ export class VideoPipeline {
   };
 
   private lastEyeContact: Record<ParticipantRole, number> = { tutor: 0, student: 0 };
+  private lastEnergy: Record<ParticipantRole, number> = { tutor: 0, student: 0 };
 
   private static readonly GAZE_HISTORY_SIZE = 100;
 
@@ -139,7 +140,8 @@ export class VideoPipeline {
       gazeVariationX = Math.min(1, emaX * 20);
     }
 
-    const exprResult = computeExpressionEnergy(features, history, undefined, pitchHist);
+    const exprResult = computeExpressionEnergy(features, history, undefined, pitchHist, this.lastEnergy[frame.participant]);
+    this.lastEnergy[frame.participant] = exprResult.energy;
 
     // Blink gate: when blinkActivity >= 15%, only allow eye contact to increase (not decrease).
     // This prevents blink-induced iris noise from dragging the score down.

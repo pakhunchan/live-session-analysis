@@ -196,47 +196,34 @@ export interface ExpressionEnergyResult {
  * - lipActivity: variance of lipOpenness (talking/reacting)
  * - genuineSmile: instantaneous value (Duchenne smile doesn't need variance)
  */
+// Half-life of 2s at ~2 FPS = 4 frames → decay = 0.5^(1/4) ≈ 0.84
+const ENERGY_DECAY = 0.84;
+
 export function computeExpressionEnergy(
   features: ExpressionFeatures,
   recentHistory: ExpressionFeatures[] = [],
-  weights: ExpressionWeights = DEFAULT_WEIGHTS,
+  _weights: ExpressionWeights = DEFAULT_WEIGHTS,
   headPitchHistory: number[] = [],
+  prevEnergy: number = 0,
 ): ExpressionEnergyResult {
-  // New instantaneous metrics (always available)
   const eyeWideness = features.eyeWideness;
   const lipTension = features.lipTension;
+  const genuineSmile = features.genuineSmile;
 
   // Head nod activity: EMA of pitch deltas (pitch in radians, small values → scale up)
   const headNodActivity = emaActivity(headPitchHistory, 15);
 
-  if (recentHistory.length < 2) {
-    // Not enough history for variance — use genuine smile as sole signal
-    return {
-      energy: Math.min(1, features.genuineSmile * weights.genuineSmile * 4),
-      blinkActivity: 0,
-      browActivity: 0,
-      lipActivity: 0,
-      genuineSmile: features.genuineSmile,
-      headNodActivity,
-      eyeWideness,
-      lipTension,
-    };
-  }
-
-  const blinkActivity = emaActivity(recentHistory.map((f) => f.eyeOpenness), 3);
-  // Brow/lip: use instantaneous position directly (0 at neutral, scales up when active).
-  // Scale ×2 so a typical raise (~0.5) reads as ~100%.
+  // Legacy metrics — still computed for breakdown display but not used in energy
+  const blinkActivity = recentHistory.length >= 2
+    ? emaActivity(recentHistory.map((f) => f.eyeOpenness), 3)
+    : 0;
   const browActivity = Math.min(1, Math.max(features.browPositionL, features.browPositionR) * 2);
   const lipActivity = Math.min(1, features.lipOpenness);
-  const genuineSmile = features.genuineSmile;
 
-  // Energy score unchanged — new metrics are debug-only, not weighted in yet
-  const energy = Math.min(1,
-    blinkActivity * weights.blinkActivity +
-    browActivity * weights.browActivity +
-    lipActivity * weights.lipActivity +
-    genuineSmile * weights.genuineSmile,
-  );
+  // Energy = min(1, smile + nod + eyeWideness) with slow decay (half-life 2s)
+  // Each signal contributes up to 1.0 when active
+  const instantEnergy = Math.min(1, genuineSmile + headNodActivity + eyeWideness);
+  const energy = Math.max(instantEnergy, prevEnergy * ENERGY_DECAY);
 
   return { energy, blinkActivity, browActivity, lipActivity, genuineSmile, headNodActivity, eyeWideness, lipTension };
 }

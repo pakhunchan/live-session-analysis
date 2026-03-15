@@ -77,12 +77,7 @@ export function computeVoiceEnergy(
   volumeVariance: number,
   spectralBrightness: number,
   speechRate: number,
-  weights: VoiceEnergyWeights = DEFAULT_WEIGHTS,
+  _weights: VoiceEnergyWeights = DEFAULT_WEIGHTS,
 ): number {
-  const score =
-    volumeVariance * weights.variance +
-    spectralBrightness * weights.brightness +
-    speechRate * weights.speechRate;
-
-  return Math.min(1, Math.max(0, score));
+  return Math.min(1, volumeVariance + spectralBrightness + speechRate);
 }
