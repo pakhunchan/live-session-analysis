@@ -477,6 +477,7 @@ export default function Dashboard() {
           onEndSession={handleStop}
           elapsed={elapsed}
           totalLatency={tutor.latencyBreakdown?.totalE2E ?? null}
+          role={myRole as 'tutor' | 'student'}
         />
       )}
     </div>

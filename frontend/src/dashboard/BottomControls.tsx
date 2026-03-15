@@ -12,25 +12,29 @@ interface BottomControlsProps {
   onEndSession: () => void;
   elapsed: number;
   totalLatency: number | null;
+  role: 'tutor' | 'student';
 }
 
 export default function BottomControls({
   onEndSession,
   elapsed,
   totalLatency,
+  role,
 }: BottomControlsProps) {
   return (
     <div style={styles.bar}>
-      {/* Left group: timer + latency */}
-      <div style={styles.leftGroup}>
-        <div style={styles.timerRow}>
-          <span style={styles.liveDot} />
-          <span style={styles.timerText}>{formatDuration(elapsed)}</span>
+      {/* Left group: timer + latency (tutor only) */}
+      {role === 'tutor' && (
+        <div style={styles.leftGroup}>
+          <div style={styles.timerRow}>
+            <span style={styles.liveDot} />
+            <span style={styles.timerText}>{formatDuration(elapsed)}</span>
+          </div>
+          <span style={styles.latencyText}>
+            Total latency: {totalLatency !== null ? `${Math.round(totalLatency)}ms` : '—'}
+          </span>
         </div>
-        <span style={styles.latencyText}>
-          Total latency: {totalLatency !== null ? `${Math.round(totalLatency)}ms` : '—'}
-        </span>
-      </div>
+      )}
 
       {/* End Session — pinned right */}
       <button
