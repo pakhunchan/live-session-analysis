@@ -133,6 +133,11 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
       metricsEngineRef.current?.ingestDataPoint(dp);
     });
 
+    // Receive backend-computed interruption counts (separate from metrics relay)
+    transport.onInterruptions((counts) => {
+      metricsEngineRef.current?.setInterruptionCounts(counts);
+    });
+
     // Wire StreamManager callbacks
     sm.onFrame(async (frame) => {
       await vp.processFrame(frame);

@@ -1,4 +1,4 @@
-import type { MetricDataPoint, ParticipantRole } from '../types';
+import type { MetricDataPoint, InterruptionCounts, ParticipantRole } from '../types';
 
 export interface MetricsTransportConfig {
   maxReconnectDelayMs: number;
@@ -11,11 +11,13 @@ const DEFAULT_CONFIG: MetricsTransportConfig = {
 };
 
 type RemoteMetricsCallback = (dp: MetricDataPoint, serverTimestamp: number) => void;
+type InterruptionsCallback = (counts: InterruptionCounts) => void;
 
 export class MetricsTransport {
   private config: MetricsTransportConfig;
   private ws: WebSocket | null = null;
   private remoteCallbacks: RemoteMetricsCallback[] = [];
+  private interruptionsCallbacks: InterruptionsCallback[] = [];
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay: number;
   private disposed = false;
@@ -61,6 +63,13 @@ export class MetricsTransport {
     };
   }
 
+  onInterruptions(cb: InterruptionsCallback): () => void {
+    this.interruptionsCallbacks.push(cb);
+    return () => {
+      this.interruptionsCallbacks = this.interruptionsCallbacks.filter((c) => c !== cb);
+    };
+  }
+
   dispose(): void {
     this.disposed = true;
     this.stopClockSync();
@@ -74,6 +83,7 @@ export class MetricsTransport {
       this.ws = null;
     }
     this.remoteCallbacks = [];
+    this.interruptionsCallbacks = [];
   }
 
   private sendClockSync(): void {
@@ -124,6 +134,14 @@ export class MetricsTransport {
           this.clockOffsetSamples.push(offset);
           if (this.clockOffsetSamples.length > MetricsTransport.CLOCK_SYNC_MAX_SAMPLES) {
             this.clockOffsetSamples.shift();
+          }
+          return;
+        }
+
+        if (msg.type === 'interruptions' && msg.counts) {
+          const counts = msg.counts as InterruptionCounts;
+          for (const cb of this.interruptionsCallbacks) {
+            cb(counts);
           }
           return;
         }

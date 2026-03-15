@@ -174,6 +174,7 @@ export class MetricsEngine {
   private config: MetricsEngineConfig;
   private startTime: number = 0;
   private history: MetricSnapshot[] = [];
+  private interruptionCounts: InterruptionCounts = { student: 0, tutor: 0, accident: 0 };
   private currentSilenceDurationMs = 0;
   private lastSilenceCheckTime = 0;
 
@@ -198,6 +199,11 @@ export class MetricsEngine {
 
   setTraceCallback(cb: (trace: LatencyTrace) => void): void {
     this.onTrace = cb;
+  }
+
+  /** Update interruption counts from backend-computed data */
+  setInterruptionCounts(counts: InterruptionCounts): void {
+    this.interruptionCounts = counts;
   }
 
   start(onSnapshot?: (snapshot: MetricSnapshot) => void): void {
@@ -290,7 +296,7 @@ export class MetricsEngine {
       now,
       this.tutorAcc,
       this.studentAcc,
-      { student: 0, tutor: 0, accident: 0 },
+      this.interruptionCounts,
       this.currentSilenceDurationMs,
       sessionElapsedMs,
       this.history,
