@@ -12,7 +12,7 @@ import type {
 } from '../types';
 import { engagementScore } from './engagement';
 
-const STALE_THRESHOLD_MS = 5000;
+const STALE_THRESHOLD_MS = 3000;
 
 export interface MetricsEngineConfig {
   sessionId: string;
