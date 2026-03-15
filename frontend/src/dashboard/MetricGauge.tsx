@@ -12,6 +12,7 @@ interface MetricGaugeProps {
   label: string;
   value: number | null;  // 0-1, null when unavailable
   size?: number;
+  color?: string;
 }
 
 function getColor(value: number): string {
@@ -20,9 +21,9 @@ function getColor(value: number): string {
   return '#dc3545';                     // red
 }
 
-export default function MetricGauge({ label, value, size = 120 }: MetricGaugeProps) {
+export default function MetricGauge({ label, value, size = 120, color: colorOverride }: MetricGaugeProps) {
   const v = value ?? 0;
-  const color = value === null ? '#adb5bd' : getColor(v);
+  const color = colorOverride ?? (value === null ? '#adb5bd' : getColor(v));
   const pct = value === null ? '–' : `${Math.round(v * 100)}`;
 
   const data = {

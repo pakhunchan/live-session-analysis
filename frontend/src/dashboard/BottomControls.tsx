@@ -1,34 +1,35 @@
 import React from 'react';
 import { colors, radius, glassmorphism, font } from './designTokens';
 
+function formatDuration(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
 interface BottomControlsProps {
-  showMesh: boolean;
-  onToggleMesh: () => void;
   onEndSession: () => void;
+  elapsed: number;
+  totalLatency: number | null;
 }
 
 export default function BottomControls({
-  showMesh,
-  onToggleMesh,
   onEndSession,
+  elapsed,
+  totalLatency,
 }: BottomControlsProps) {
   return (
     <div style={styles.bar}>
-      {/* Center group: Mesh */}
-      <div style={styles.centerGroup}>
-        <button
-          onClick={onToggleMesh}
-          style={{
-            ...styles.btn,
-            ...(showMesh ? styles.btnActive : {}),
-          }}
-          title={showMesh ? 'Hide Face Mesh' : 'Show Face Mesh'}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
-            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-          </svg>
-        </button>
+      {/* Left group: timer + latency */}
+      <div style={styles.leftGroup}>
+        <div style={styles.timerRow}>
+          <span style={styles.liveDot} />
+          <span style={styles.timerText}>{formatDuration(elapsed)}</span>
+        </div>
+        <span style={styles.latencyText}>
+          Total latency: {totalLatency !== null ? `${Math.round(totalLatency)}ms` : '—'}
+        </span>
       </div>
 
       {/* End Session — pinned right */}
@@ -59,10 +60,35 @@ const styles: Record<string, React.CSSProperties> = {
     borderTop: `1px solid ${colors.borderLight}`,
     fontFamily: font,
   },
-  centerGroup: {
+  leftGroup: {
+    position: 'absolute' as const,
+    left: 20,
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: 2,
+  },
+  timerRow: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+  },
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    background: colors.green,
+    animation: 'pulse-live 2s ease-in-out infinite',
+  },
+  timerText: {
+    fontSize: '0.82rem',
+    fontWeight: 600,
+    color: colors.textPrimary,
+    fontVariantNumeric: 'tabular-nums',
+  },
+  latencyText: {
+    fontSize: '0.72rem',
+    color: colors.textTertiary,
+    fontVariantNumeric: 'tabular-nums',
   },
   btn: {
     width: 44,
@@ -77,12 +103,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: 'center',
     transition: 'all 0.15s ease',
   },
-  btnActive: {
-    background: colors.blueBg,
-    borderColor: colors.blueSoft,
-    color: colors.blue,
-  },
-btnEnd: {
+  btnEnd: {
     position: 'absolute' as const,
     right: 20,
     background: colors.coral,

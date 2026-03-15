@@ -24,92 +24,26 @@ function pct(v: number | null): string {
   return `${Math.round(v * 100)}%`;
 }
 
-// ── Participant Expandable Row ──
-
-function ParticipantRow({ label, role, metrics, avatarStyle }: {
-  label: string;
-  role: string;
-  metrics: ParticipantMetrics | null;
-  avatarStyle: React.CSSProperties;
-}) {
-  const [open, setOpen] = useState(label === 'Student');
-  const eng = metrics ? engagementScore(metrics) : null;
-  const engColor = metricColor(eng);
-
-  const metricCells = metrics ? [
-    { label: 'Eye Contact', value: metrics.eyeContactScore },
-    { label: 'Talk Time', value: metrics.talkTimePercent },
-    { label: 'Energy', value: metrics.energyScore },
-    { label: 'Face Conf', value: metrics.faceConfidence },
-  ] : [];
-
-  return (
-    <div>
-      <button style={s.participantHeader} onClick={() => setOpen(!open)}>
-        <div style={{ ...s.avatar, ...avatarStyle }}>
-          {label[0]}
-        </div>
-        <div style={s.participantNameCol}>
-          <span style={s.participantName}>{label}</span>
-          <span style={s.participantRole}>{role}</span>
-        </div>
-        <span style={{ ...s.quickStat, color: engColor }}>{pct(eng)}</span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={colors.textTertiary}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          style={{
-            transform: open ? 'rotate(90deg)' : 'none',
-            transition: 'transform 0.25s ease',
-            flexShrink: 0,
-          }}
-        >
-          <path d="M9 6l6 6-6 6" />
-        </svg>
-      </button>
-
-      <div style={{
-        maxHeight: open ? 400 : 0,
-        overflow: 'hidden',
-        transition: 'max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}>
-        {metrics && (
-          <div style={s.metricGrid}>
-            {metricCells.map((mc) => {
-              const c = metricColor(mc.value);
-              const w = mc.value !== null ? `${Math.round(mc.value * 100)}%` : '0%';
-              return (
-                <div key={mc.label} style={s.metricCell}>
-                  <div style={s.mcLabel}>{mc.label}</div>
-                  <div style={{ ...s.mcValue, color: c }}>{pct(mc.value)}</div>
-                  <div style={s.mcBar}>
-                    <div style={{ ...s.mcBarFill, width: w, background: c }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Main Sidebar ──
 
 export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus, tutorName, studentName }: SidebarProps) {
   const studentEng = snapshot?.student ? engagementScore(snapshot.student) : null;
+  const tutorEng = snapshot?.tutor ? engagementScore(snapshot.tutor) : null;
   const [engExpanded, setEngExpanded] = useState(false);
+  const [tutorEngExpanded, setTutorEngExpanded] = useState(false);
 
   const studentMetricCells = snapshot?.student ? [
     { label: 'Eye Contact', value: snapshot.student.eyeContactScore },
-    { label: 'Energy', value: snapshot.student.energyScore },
+    { label: 'Energy', value: snapshot.student.expressionEnergy ?? null },
     { label: 'Talking', value: snapshot.student.isSpeaking === true ? 1 : snapshot.student.isSpeaking === false ? 0 : null, isBool: true },
     { label: 'Face Conf', value: snapshot.student.faceConfidence },
+  ] as Array<{ label: string; value: number | null; isBool?: boolean }> : [];
+
+  const tutorMetricCells = snapshot?.tutor ? [
+    { label: 'Eye Contact', value: snapshot.tutor.eyeContactScore },
+    { label: 'Energy', value: snapshot.tutor.expressionEnergy ?? null },
+    { label: 'Talking', value: snapshot.tutor.isSpeaking === true ? 1 : snapshot.tutor.isSpeaking === false ? 0 : null, isBool: true },
+    { label: 'Face Conf', value: snapshot.tutor.faceConfidence },
   ] as Array<{ label: string; value: number | null; isBool?: boolean }> : [];
 
   return (
@@ -132,7 +66,7 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus,
                 <span style={s.donutSubLabel}>Engagement</span>
               </div>
               <div style={s.heroDonut}>
-                <SvgDonut value={snapshot?.student?.energyScore ?? null} size={110} strokeWidth={8} />
+                <SvgDonut value={snapshot?.student?.expressionEnergy ?? null} size={110} strokeWidth={8} color="#5b8af5" />
                 <span style={s.donutSubLabel}>Energy</span>
               </div>
             </div>
@@ -156,7 +90,7 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus,
                       </div>
                     );
                   }
-                  const c = metricColor(mc.value);
+                  const c = mc.label === 'Energy' ? colors.blue : metricColor(mc.value);
                   const w = mc.value !== null ? `${Math.round(mc.value * 100)}%` : '0%';
                   return (
                     <div key={mc.label} style={s.metricCell}>
@@ -199,12 +133,56 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus,
         {/* 6. Tutor Engagement */}
         <div style={cardStyle}>
           <div style={s.cardTitle}>Tutor Engagement</div>
-          <ParticipantRow
-            label={tutorName}
-            role="Tutor"
-            metrics={snapshot?.tutor ?? null}
-            avatarStyle={{ background: `linear-gradient(135deg, ${colors.mint}, #3bb8d8)` }}
-          />
+          <button style={s.engagementBody} onClick={() => setTutorEngExpanded(!tutorEngExpanded)}>
+            <div style={s.engagementHeader}>
+              <div style={s.engagementName}>{tutorName}</div>
+              <div style={s.donutRole}>Tutor</div>
+            </div>
+            <div style={s.heroDonutRow}>
+              <div style={s.heroDonut}>
+                <SvgDonut value={tutorEng} size={110} strokeWidth={8} />
+                <span style={s.donutSubLabel}>Engagement</span>
+              </div>
+              <div style={s.heroDonut}>
+                <SvgDonut value={snapshot?.tutor?.expressionEnergy ?? null} size={110} strokeWidth={8} color="#5b8af5" />
+                <span style={s.donutSubLabel}>Energy</span>
+              </div>
+            </div>
+          </button>
+          <div style={{
+            maxHeight: tutorEngExpanded ? 400 : 0,
+            overflow: 'hidden',
+            transition: 'max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}>
+            {snapshot?.tutor && (
+              <div style={s.metricGrid}>
+                {tutorMetricCells.map((mc) => {
+                  if (mc.isBool) {
+                    const active = mc.value === 1;
+                    return (
+                      <div key={mc.label} style={s.metricCell}>
+                        <div style={s.mcLabel}>{mc.label}</div>
+                        <div style={{ ...s.mcValue, color: active ? colors.green : colors.textTertiary }}>
+                          {mc.value === null ? '–' : active ? 'Yes' : 'No'}
+                        </div>
+                      </div>
+                    );
+                  }
+                  const c = mc.label === 'Energy' ? colors.blue : metricColor(mc.value);
+                  const w = mc.value !== null ? `${Math.round(mc.value * 100)}%` : '0%';
+                  return (
+                    <div key={mc.label} style={s.metricCell}>
+                      <div style={s.mcLabel}>{mc.label}</div>
+                      <div style={{ ...s.mcValue, color: c }}>{pct(mc.value)}</div>
+                      <div style={s.mcBar}>
+                        <div style={{ ...s.mcBarFill, width: w, background: c }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </aside>
@@ -293,54 +271,6 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: '0.72rem',
     fontWeight: 500,
     color: colors.textTertiary,
-  },
-
-  // Participant rows
-  participantHeader: {
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '10px 0',
-    background: 'none',
-    border: 'none',
-    borderBottom: `1px solid ${colors.borderLight}`,
-    cursor: 'pointer',
-    fontFamily: font,
-    textAlign: 'left' as const,
-  },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '0.78rem',
-    fontWeight: 600,
-    color: '#fff',
-    flexShrink: 0,
-  },
-  participantNameCol: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  participantName: {
-    fontWeight: 600,
-    fontSize: '0.85rem',
-    color: colors.textPrimary,
-    lineHeight: 1.2,
-  },
-  participantRole: {
-    fontSize: '0.68rem',
-    fontWeight: 500,
-    color: colors.textTertiary,
-  },
-  quickStat: {
-    fontSize: '0.82rem',
-    fontWeight: 600,
-    fontVariantNumeric: 'tabular-nums',
   },
 
   // Metric grid

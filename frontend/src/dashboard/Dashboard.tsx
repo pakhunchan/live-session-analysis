@@ -17,13 +17,6 @@ import type { LiveKitSetupConfig, InputSourceType, SessionSummary } from '../typ
 const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL as string | undefined;
 const API_BASE = import.meta.env.VITE_API_BASE_URL as string | undefined;
 
-function formatDuration(ms: number): string {
-  const totalSec = Math.floor(ms / 1000);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}`;
-}
-
 export default function Dashboard() {
   const tutor = useMetricsEngine();
   const student = useStudentPipeline();
@@ -263,22 +256,14 @@ export default function Dashboard() {
 
       {/* ===== TOP BAR ===== */}
       <header style={styles.topbar}>
-        <div style={styles.topbarLeft}>
-          <span style={styles.logo}>LSA</span>
-          <div style={styles.sessionInfo}>
-            <span style={styles.sessionLabel}>
-              {roomName ?? 'Session'}
-            </span>
-            <span style={styles.elapsedBadge}>
-              <span style={styles.liveDot} />
-              {formatDuration(elapsed)}
-            </span>
-          </div>
-        </div>
-        <div style={styles.topbarRight}>
-          <span style={styles.statusText}>{status}</span>
-        </div>
+        <span style={styles.logo}>Live Session Analysis</span>
+        <span style={styles.statusText}>{status}</span>
       </header>
+      <div style={styles.subbar}>
+        <span style={styles.sessionLabel}>
+          Room Code: {roomName ?? 'Session'}
+        </span>
+      </div>
 
       {error && <div style={styles.errorBanner}>{error}</div>}
 
@@ -489,9 +474,9 @@ export default function Dashboard() {
       {/* ===== BOTTOM CONTROLS ===== */}
       {isRunning && (
         <BottomControls
-          showMesh={showMesh}
-          onToggleMesh={() => setShowMesh(m => !m)}
           onEndSession={handleStop}
+          elapsed={elapsed}
+          totalLatency={tutor.latencyBreakdown?.totalE2E ?? null}
         />
       )}
     </div>
@@ -514,61 +499,36 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: layout.topbarH,
+    height: 40,
     padding: '0 20px',
-    ...glassmorphism(0.72),
-    borderBottom: `1px solid ${colors.borderLight}`,
+    background: 'linear-gradient(90deg, #115e59 0%, #0f766e 50%, #0d9488 100%)',
     flexShrink: 0,
     zIndex: 100,
   },
-  topbarLeft: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 16,
-  },
   logo: {
-    fontSize: '1.1rem',
+    fontSize: '0.85rem',
     fontWeight: 700,
-    color: colors.blue,
+    color: '#ffffff',
     letterSpacing: '-0.02em',
-  },
-  sessionInfo: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-  },
-  sessionLabel: {
-    fontSize: '0.82rem',
-    fontWeight: 500,
-    color: colors.textSecondary,
-  },
-  elapsedBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 6,
-    padding: '3px 10px',
-    background: colors.surfaceHover,
-    borderRadius: 8,
-    fontSize: '0.78rem',
-    fontWeight: 600,
-    color: colors.textPrimary,
-    fontVariantNumeric: 'tabular-nums',
-  },
-  liveDot: {
-    width: 7,
-    height: 7,
-    borderRadius: '50%',
-    background: colors.green,
-    animation: 'pulse-live 2s ease-in-out infinite',
-  },
-  topbarRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
   },
   statusText: {
     fontSize: '0.78rem',
-    color: colors.textTertiary,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  subbar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    height: 32,
+    padding: '0 20px',
+    background: colors.surfaceHover,
+    borderBottom: `1px solid ${colors.borderLight}`,
+    flexShrink: 0,
+  },
+  sessionLabel: {
+    fontSize: '0.78rem',
+    fontWeight: 500,
+    color: colors.textSecondary,
   },
 
   // ── Errors ──

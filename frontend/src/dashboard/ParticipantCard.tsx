@@ -31,7 +31,7 @@ export default function ParticipantCard({ role, metrics, color }: ParticipantCar
       <div style={styles.gauges}>
         <MetricGauge label="Eye Contact" value={m.eyeContactScore} size={100} />
         <MetricGauge label="Talk Time" value={m.talkTimePercent} size={100} />
-        <MetricGauge label="Energy" value={m.energyScore} size={100} />
+        <MetricGauge label="Energy" value={m.energyScore} size={100} color="#5b8af5" />
       </div>
 
       <div style={styles.details}>

@@ -91,6 +91,7 @@ export default function PostSessionSummary({ summary, history, onNewSession }: P
                 label="Energy"
                 value={summary.avgMetrics.student?.energyScore ?? 0}
                 size={100}
+                color="#5b8af5"
               />
               <MetricGauge
                 label="Talk Time"
@@ -112,6 +113,7 @@ export default function PostSessionSummary({ summary, history, onNewSession }: P
                 label="Energy"
                 value={summary.avgMetrics.tutor?.energyScore ?? 0}
                 size={100}
+                color="#5b8af5"
               />
               <MetricGauge
                 label="Talk Time"
