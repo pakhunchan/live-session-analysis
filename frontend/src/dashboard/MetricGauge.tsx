@@ -10,7 +10,7 @@ ChartJS.register(ArcElement, Tooltip);
 
 interface MetricGaugeProps {
   label: string;
-  value: number;  // 0-1
+  value: number | null;  // 0-1, null when unavailable
   size?: number;
 }
 
@@ -21,12 +21,13 @@ function getColor(value: number): string {
 }
 
 export default function MetricGauge({ label, value, size = 120 }: MetricGaugeProps) {
-  const color = getColor(value);
-  const pct = Math.round(value * 100);
+  const v = value ?? 0;
+  const color = value === null ? '#adb5bd' : getColor(v);
+  const pct = value === null ? '–' : `${Math.round(v * 100)}`;
 
   const data = {
     datasets: [{
-      data: [value, 1 - value],
+      data: [v, 1 - v],
       backgroundColor: [color, '#e9ecef'],
       borderWidth: 0,
       circumference: 180,
@@ -56,7 +57,7 @@ export default function MetricGauge({ label, value, size = 120 }: MetricGaugePro
           fontWeight: 700,
           color,
         }}>
-          {pct}%
+          {value === null ? '–' : `${pct}%`}
         </div>
       </div>
       <div style={{

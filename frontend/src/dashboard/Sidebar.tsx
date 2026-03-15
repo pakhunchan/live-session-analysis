@@ -14,29 +14,32 @@ interface SidebarProps {
   onToggle: () => void;
 }
 
-function pct(v: number): string {
+function pct(v: number | null): string {
+  if (v === null) return '–';
   return `${Math.round(v * 100)}%`;
 }
 
-function getEngColor(eng: number): string {
+function getEngColor(eng: number | null): string {
+  if (eng === null) return '#adb5bd';
   if (eng >= 0.6) return '#198754';
   if (eng >= 0.4) return '#ffc107';
   return '#dc3545';
 }
 
-function getValueColor(v: number): string {
+function getValueColor(v: number | null): string {
+  if (v === null) return '#adb5bd';
   if (v >= 0.6) return '#198754';
   if (v >= 0.35) return '#e67e22';
   return '#dc3545';
 }
 
-function MetricBar({ label, value, color }: { label: string; value: number; color?: string }) {
+function MetricBar({ label, value, color }: { label: string; value: number | null; color?: string }) {
   const c = color ?? getValueColor(value);
   return (
     <div style={s.metricBar}>
       <span style={s.metricBarLabel}>{label}</span>
       <div style={s.metricBarTrack}>
-        <div style={{ ...s.metricBarFill, width: `${Math.round(value * 100)}%`, background: c }} />
+        <div style={{ ...s.metricBarFill, width: value === null ? '0%' : `${Math.round(value * 100)}%`, background: c }} />
       </div>
       <span style={{ ...s.metricBarValue, color: c }}>{pct(value)}</span>
     </div>
@@ -48,12 +51,13 @@ function ParticipantTile({ label, metrics, color }: { label: string; metrics: Pa
   const [energyExpanded, setEnergyExpanded] = useState(false);
 
   const m = metrics;
-  const eng = m ? engagementScore(m) : 0;
+  const eng = m ? engagementScore(m) : null;
   const engColor = getEngColor(eng);
 
   const badges: { text: string; bg: string; fg: string }[] = [];
+  if (m?.dataStatus?.videoStale || m?.dataStatus?.audioStale) badges.push({ text: 'Stale', bg: '#fff3cd', fg: '#664d03' });
   if (m?.isSpeaking) badges.push({ text: 'Speaking', bg: '#d1e7dd', fg: '#0f5132' });
-  if (m && !m.faceDetected) badges.push({ text: 'No Face', bg: '#f8d7da', fg: '#842029' });
+  if (m && !m.faceDetected && !m.dataStatus?.videoStale) badges.push({ text: 'No Face', bg: '#f8d7da', fg: '#842029' });
 
   return (
     <div style={s.tile}>

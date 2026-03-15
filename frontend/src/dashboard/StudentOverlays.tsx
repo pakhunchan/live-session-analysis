@@ -14,7 +14,7 @@ function getBorderColor(engagement: number): string {
 }
 
 function getStatusIcon(m: ParticipantMetrics): { icon: string; title: string } | null {
-  if (m.isSpeaking) return { icon: '🎙', title: 'Speaking' };
+  if (m.isSpeaking === true) return { icon: '🎙', title: 'Speaking' };
   if (m.distractionDurationMs > 10000) return { icon: '⚠', title: 'Distracted' };
   return null;
 }
@@ -23,8 +23,8 @@ export default function StudentOverlays({ metrics }: StudentOverlaysProps) {
   if (!metrics) return null;
 
   const engagement = engagementScore(metrics);
-  const borderColor = getBorderColor(engagement);
-  const engPct = Math.round(engagement * 100);
+  const borderColor = engagement !== null ? getBorderColor(engagement) : '#6c757d';
+  const engPct = engagement !== null ? `${Math.round(engagement * 100)}%` : '–';
   const status = getStatusIcon(metrics);
 
   return (
@@ -39,12 +39,12 @@ export default function StudentOverlays({ metrics }: StudentOverlaysProps) {
       <div style={styles.engagementPillWrapper}>
         <Tooltip text="Engagement Score — Blend of eye contact and energy signals">
           <div style={{ ...styles.engagementPill, color: borderColor }}>
-            Eng {engPct}%
+            Eng {engPct}
           </div>
         </Tooltip>
         <Tooltip text="Student Talk — Percentage of session time the student has spoken">
           <div style={styles.talkPill}>
-            Talk {Math.round(metrics.talkTimePercent * 100)}%
+            Talk {metrics.talkTimePercent !== null ? `${Math.round(metrics.talkTimePercent * 100)}%` : '–'}
           </div>
         </Tooltip>
       </div>

@@ -8,8 +8,10 @@ interface PersistentMetricsProps {
 }
 
 export default function PersistentMetrics({ student }: PersistentMetricsProps) {
-  const engagement = student ? Math.round(engagementScore(student) * 100) : 0;
-  const talk = student ? Math.round(student.talkTimePercent * 100) : 0;
+  const engRaw = student ? engagementScore(student) : null;
+  const engagement = engRaw !== null ? `${Math.round(engRaw * 100)}%` : '–';
+  const talk = student?.talkTimePercent !== null && student?.talkTimePercent !== undefined
+    ? `${Math.round(student.talkTimePercent * 100)}%` : '–';
 
   return (
     <div style={styles.bar}>
@@ -18,14 +20,14 @@ export default function PersistentMetrics({ student }: PersistentMetricsProps) {
       <Tooltip text="Engagement — Blend of eye contact and energy signals" position="below">
         <div style={styles.metric}>
           <span style={styles.label}>Eng</span>
-          <span style={styles.value}>{engagement}%</span>
+          <span style={styles.value}>{engagement}</span>
         </div>
       </Tooltip>
       <div style={styles.divider} />
       <Tooltip text="Student Talk — Percentage of session time the student has spoken" position="below">
         <div style={styles.metric}>
           <span style={styles.label}>Talk</span>
-          <span style={styles.value}>{talk}%</span>
+          <span style={styles.value}>{talk}</span>
         </div>
       </Tooltip>
     </div>
