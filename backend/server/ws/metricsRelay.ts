@@ -92,6 +92,22 @@ export function attachMetricsRelay(server: HttpServer): void {
           console.log(`[metricsRelay] room "${roomName}" TTL cancelled — participant rejoined`);
         }
 
+        // Restart broadcast timer if it was cleared during empty-room cleanup
+        if (!existingRoom.interruptionBroadcastTimer) {
+          const detector = existingRoom.interruptionDetector;
+          const accumulator = existingRoom.sessionAccumulator;
+          existingRoom.interruptionBroadcastTimer = setInterval(() => {
+            const counts = detector.getCounts();
+            const payload = JSON.stringify({ type: 'interruptions', counts });
+            for (const c of existingRoom.connections) {
+              if (c.role === 'tutor' && c.ws.readyState === WebSocket.OPEN) {
+                c.ws.send(payload);
+              }
+            }
+            accumulator.checkInterruptions(detector);
+          }, 1000);
+        }
+
         conn = { ws, role, clockOffset: 0 };
         existingRoom.connections.push(conn);
         console.log(`[metricsRelay] ${role} joined room "${roomName}" (${existingRoom.connections.length} in room)`);

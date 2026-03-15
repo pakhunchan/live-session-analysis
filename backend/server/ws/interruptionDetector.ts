@@ -84,7 +84,15 @@ export class InterruptionDetector {
   }
 
   private drain(): void {
-    const newWatermark = Math.min(this.latestTs.tutor, this.latestTs.student);
+    const tT = this.latestTs.tutor;
+    const tS = this.latestTs.student;
+
+    let newWatermark: number;
+    if (tT === -Infinity && tS === -Infinity) return;            // no data yet
+    if (tT === -Infinity) newWatermark = tS;                     // only student so far
+    else if (tS === -Infinity) newWatermark = tT;                // only tutor so far
+    else newWatermark = Math.min(tT, tS);                        // both present
+
     if (newWatermark <= this.watermark) return;
     this.watermark = newWatermark;
     this.processUpTo(this.watermark);
