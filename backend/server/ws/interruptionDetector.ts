@@ -52,7 +52,7 @@ export class InterruptionDetector {
   private lastInterruptedSpeaker: ParticipantRole | null = null;
   private interruptedSpeakerPausedSince = false;
 
-  private readonly MIN_OVERLAP_MS = 750;
+  private readonly MIN_OVERLAP_MS = 500;
   private readonly ESTABLISHED_SPEAKER_MS = 1000;
   private readonly COOLDOWN_CONTINUOUS_MS = 3000;
   private readonly COOLDOWN_PAUSED_MS = 2000;
