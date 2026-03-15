@@ -1,5 +1,5 @@
 import { traceable } from 'langsmith/traceable';
-import type { SummaryInput } from '../../shared/types.js';
+import type { SummaryInput } from '../../../shared/types.js';
 
 function formatMetricsPrompt(summary: SummaryInput): string {
   return JSON.stringify({

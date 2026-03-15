@@ -10,7 +10,6 @@ import NudgeChips from './NudgeChips';
 import PostSessionSummary from './PostSessionSummary';
 import { LiveKitSessionOrchestrator } from '../core/LiveKitSessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
-import { generateSessionSummary } from '../core/generateSessionSummary';
 import { fetchRecommendations, generateFallbackRecommendations } from '../core/openaiRecommendations';
 import type { LiveKitSetupConfig, InputSourceType, SessionSummary } from '../types/session';
 
@@ -36,6 +35,7 @@ export default function Dashboard() {
   const videoStageRef = useRef<HTMLDivElement>(null);
   const [myRole, setMyRole] = useState<'tutor' | 'student'>('tutor');
   const [muted, setMuted] = useState(false);
+  const [roomName, setRoomName] = useState<string | null>(null);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -88,6 +88,7 @@ export default function Dashboard() {
       setError(null);
       setSetupLoading(true);
       setMyRole(config.role);
+      setRoomName(config.roomName);
       setInputSource(config.inputSource);
       setStatus('Fetching token...');
 
@@ -175,18 +176,43 @@ export default function Dashboard() {
     if (myRole === 'tutor') {
       tutor.stop();
 
-      // Generate summary from history before clearing streams
-      const partial = generateSessionSummary(tutor.history, tutor.nudges);
-      const summary: SessionSummary = { ...partial, recommendations: [] };
-      setSessionSummary(summary);
+      // Show loading state while backend computes summary + recommendations
+      setSessionSummary({
+        sessionId: '',
+        durationMs: 0,
+        avgMetrics: { tutor: {}, student: {} },
+        totalInterruptions: 0,
+        talkTimeRatio: { tutor: 0.5, student: 0.5 },
+        engagementScore: 0,
+        keyMoments: [],
+        nudgesTriggered: [],
+        recommendations: [],
+      });
 
-      // Fetch recommendations via server proxy (non-blocking)
-      fetchRecommendations(partial)
-        .then(recs => setSessionSummary(prev => prev ? { ...prev, recommendations: recs } : null))
-        .catch(() => {
-          const fallback = generateFallbackRecommendations(partial);
-          setSessionSummary(prev => prev ? { ...prev, recommendations: fallback } : null);
-        });
+      // Fetch backend-computed summary + recommendations
+      if (roomName) {
+        fetchRecommendations(roomName)
+          .then(({ recommendations, summary }) => {
+            setSessionSummary({
+              ...summary,
+              nudgesTriggered: tutor.nudges,
+              recommendations,
+            });
+          })
+          .catch(() => {
+            const fallback = generateFallbackRecommendations({
+              sessionId: '',
+              durationMs: 0,
+              avgMetrics: { tutor: {}, student: {} },
+              totalInterruptions: 0,
+              talkTimeRatio: { tutor: 0.5, student: 0.5 },
+              engagementScore: 0,
+              keyMoments: [],
+              nudgesTriggered: tutor.nudges,
+            });
+            setSessionSummary(prev => prev ? { ...prev, recommendations: fallback } : null);
+          });
+      }
     } else {
       student.stop();
       setSessionSummary({} as SessionSummary); // signal session ended
@@ -197,7 +223,7 @@ export default function Dashboard() {
     setTutorStream(null);
     setStudentStream(null);
     setStatus('Stopped');
-  }, [myRole, tutor, student]);
+  }, [myRole, tutor, student, roomName]);
 
   const isTutorWebcam = myRole === 'tutor' && inputSource === 'webcam';
 

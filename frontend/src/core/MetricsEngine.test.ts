@@ -14,6 +14,8 @@ function makeAccumulator(
     latestAudio: audio
       ? { source: 'audio' as const, participant: 'tutor' as const, timestamp: 1000, ...audio }
       : null,
+    lastVideoReceivedAt: video ? Date.now() : null,
+    lastAudioReceivedAt: audio ? Date.now() : null,
     speakingMs,
     lastAudioTimestamp: audio ? 1000 : null,
   };

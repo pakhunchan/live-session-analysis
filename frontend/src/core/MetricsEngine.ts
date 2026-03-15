@@ -31,6 +31,8 @@ const DEFAULT_CONFIG: MetricsEngineConfig = {
 interface ParticipantAccumulator {
   latestVideo: MetricDataPoint | null;
   latestAudio: MetricDataPoint | null;
+  lastVideoReceivedAt: number | null;
+  lastAudioReceivedAt: number | null;
   speakingMs: number;
   lastAudioTimestamp: number | null;
 }
@@ -86,8 +88,11 @@ function buildParticipantMetrics(
 
   // "Stale" only applies when data was previously received but stopped arriving.
   // Never-received data uses default values (0/false), not null.
-  const videoStale = video !== null && (now - video.timestamp) > STALE_THRESHOLD_MS;
-  const audioStale = audio !== null && (now - audio.timestamp) > STALE_THRESHOLD_MS;
+  // Arrival-based: compare tutor's Date.now() at ingestion vs snapshot time (single clock).
+  const videoStale = video !== null && acc.lastVideoReceivedAt !== null
+    && (now - acc.lastVideoReceivedAt) > STALE_THRESHOLD_MS;
+  const audioStale = audio !== null && acc.lastAudioReceivedAt !== null
+    && (now - acc.lastAudioReceivedAt) > STALE_THRESHOLD_MS;
 
   const faceDetected = videoStale ? false : (video?.faceDetected ?? false);
   const faceConfidence = videoStale ? 0 : (video?.faceConfidence ?? 0);
@@ -208,8 +213,8 @@ export class MetricsEngine {
     student: { lastDistractedAt: null, durationMs: 0 },
   };
 
-  private tutorAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0, lastAudioTimestamp: null };
-  private studentAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, speakingMs: 0, lastAudioTimestamp: null };
+  private tutorAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, lastVideoReceivedAt: null, lastAudioReceivedAt: null, speakingMs: 0, lastAudioTimestamp: null };
+  private studentAcc: ParticipantAccumulator = { latestVideo: null, latestAudio: null, lastVideoReceivedAt: null, lastAudioReceivedAt: null, speakingMs: 0, lastAudioTimestamp: null };
 
   private snapshotTimer: ReturnType<typeof setInterval> | null = null;
   private onSnapshot: ((snapshot: MetricSnapshot) => void) | null = null;
@@ -260,6 +265,7 @@ export class MetricsEngine {
 
     if (dp.source === 'video') {
       acc.latestVideo = dp;
+      acc.lastVideoReceivedAt = Date.now();
 
       // Distraction tracking: sustained low eye contact
       const ds = this.distractionState[dp.participant];
@@ -285,6 +291,7 @@ export class MetricsEngine {
       }
       acc.lastAudioTimestamp = dp.timestamp;
       acc.latestAudio = dp;
+      acc.lastAudioReceivedAt = Date.now();
     }
 
     // Silence + interruption tracking (driven by audio data points from both participants)

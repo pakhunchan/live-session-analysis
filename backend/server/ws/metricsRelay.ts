@@ -1,6 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server as HttpServer } from 'http';
 import { InterruptionDetector } from './interruptionDetector.js';
+import { SessionAccumulator } from './sessionAccumulator.js';
 
 interface RoomConnection {
   ws: WebSocket;
@@ -11,12 +12,23 @@ interface RoomConnection {
 interface Room {
   connections: RoomConnection[];
   interruptionDetector: InterruptionDetector;
+  sessionAccumulator: SessionAccumulator;
   interruptionBroadcastTimer: ReturnType<typeof setInterval> | null;
+  ttlTimer: ReturnType<typeof setTimeout> | null;
+}
+
+// Module-level rooms map so other modules (e.g. recommendations endpoint) can look up rooms
+const rooms = new Map<string, Room>();
+
+/** Look up a room's accumulator and interruption detector by name */
+export function getRoomData(roomName: string): { accumulator: SessionAccumulator; detector: InterruptionDetector } | null {
+  const room = rooms.get(roomName);
+  if (!room) return null;
+  return { accumulator: room.sessionAccumulator, detector: room.interruptionDetector };
 }
 
 export function attachMetricsRelay(server: HttpServer): void {
   const wss = new WebSocketServer({ server, path: '/ws/metrics' });
-  const rooms = new Map<string, Room>();
 
   // Heartbeat ping every 30s
   const heartbeat = setInterval(() => {
@@ -48,13 +60,16 @@ export function attachMetricsRelay(server: HttpServer): void {
 
         if (!rooms.has(roomName)) {
           const detector = new InterruptionDetector();
+          const accumulator = new SessionAccumulator(roomName);
           const room: Room = {
             connections: [],
             interruptionDetector: detector,
+            sessionAccumulator: accumulator,
             interruptionBroadcastTimer: null,
+            ttlTimer: null,
           };
 
-          // Broadcast interruption counts to tutors every 1s
+          // Broadcast interruption counts to tutors every 1s + check for bursts
           room.interruptionBroadcastTimer = setInterval(() => {
             const counts = detector.getCounts();
             const payload = JSON.stringify({ type: 'interruptions', counts });
@@ -63,14 +78,23 @@ export function attachMetricsRelay(server: HttpServer): void {
                 c.ws.send(payload);
               }
             }
+            accumulator.checkInterruptions(detector);
           }, 1000);
 
           rooms.set(roomName, room);
         }
 
+        // Cancel TTL timer if someone rejoins a room in cooldown
+        const existingRoom = rooms.get(roomName)!;
+        if (existingRoom.ttlTimer) {
+          clearTimeout(existingRoom.ttlTimer);
+          existingRoom.ttlTimer = null;
+          console.log(`[metricsRelay] room "${roomName}" TTL cancelled — participant rejoined`);
+        }
+
         conn = { ws, role, clockOffset: 0 };
-        rooms.get(roomName)!.connections.push(conn);
-        console.log(`[metricsRelay] ${role} joined room "${roomName}" (${rooms.get(roomName)!.connections.length} in room)`);
+        existingRoom.connections.push(conn);
+        console.log(`[metricsRelay] ${role} joined room "${roomName}" (${existingRoom.connections.length} in room)`);
         return;
       }
 
@@ -115,6 +139,21 @@ export function attachMetricsRelay(server: HttpServer): void {
           });
         }
 
+        // Feed all data points into session accumulator
+        if (data && (data.source === 'video' || data.source === 'audio')) {
+          room.sessionAccumulator.ingest({
+            participant: role,
+            source: data.source as 'video' | 'audio',
+            timestamp: data.timestamp as number,
+            eyeContact: data.eyeContact as number | undefined,
+            faceDetected: data.faceDetected as boolean | undefined,
+            faceConfidence: data.faceConfidence as number | undefined,
+            expressionEnergy: data.expressionEnergy as number | undefined,
+            isSpeaking: data.isSpeaking as boolean | undefined,
+            voiceEnergy: data.voiceEnergy as number | undefined,
+          });
+        }
+
         if (role === 'student') {
           // Stamp t4 (server forward) just before sending
           if (data?._trace && typeof data._trace === 'object') {
@@ -149,8 +188,16 @@ export function attachMetricsRelay(server: HttpServer): void {
             room.interruptionDetector.flush();
             if (room.interruptionBroadcastTimer) {
               clearInterval(room.interruptionBroadcastTimer);
+              room.interruptionBroadcastTimer = null;
             }
-            rooms.delete(roomName);
+            // Start 30-minute TTL instead of deleting immediately
+            // (allows the recommendations endpoint to fetch the summary)
+            const TTL_MS = 30 * 60 * 1000;
+            room.ttlTimer = setTimeout(() => {
+              rooms.delete(roomName!);
+              console.log(`[metricsRelay] room "${roomName}" TTL expired, cleaned up`);
+            }, TTL_MS);
+            console.log(`[metricsRelay] room "${roomName}" empty, starting ${TTL_MS / 60_000}min TTL`);
           }
         }
       }

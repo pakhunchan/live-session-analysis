@@ -3,16 +3,16 @@ import type { SessionSummary } from '../types/session';
 type SummaryInput = Omit<SessionSummary, 'recommendations'>;
 
 /**
- * Fetch coaching recommendations from the server-side proxy
- * (Express + LangSmith tracing). Throws on failure — caller handles fallback.
+ * Fetch coaching recommendations from the backend.
+ * The backend computes the session summary from its own accumulated data.
  */
 export async function fetchRecommendations(
-  summary: SummaryInput,
-): Promise<string[]> {
+  roomName: string,
+): Promise<{ recommendations: string[]; summary: Omit<SessionSummary, 'recommendations'> }> {
   const response = await fetch('/api/recommendations', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(summary),
+    body: JSON.stringify({ roomName }),
   });
 
   if (!response.ok) {
@@ -20,7 +20,7 @@ export async function fetchRecommendations(
   }
 
   const data = await response.json();
-  return data.recommendations;
+  return { recommendations: data.recommendations, summary: data.summary };
 }
 
 /** Rule-based recommendations when OpenAI is unavailable */

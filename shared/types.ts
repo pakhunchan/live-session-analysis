@@ -1,4 +1,4 @@
-/** The payload sent from the frontend to POST /api/recommendations */
+/** The session summary shape used by the recommendations endpoint */
 export interface SummaryInput {
   sessionId: string;
   durationMs: number;
@@ -13,7 +13,7 @@ export interface SummaryInput {
     timestamp: number;
     type: string;
     description: string;
-    metrics: Record<string, unknown>;
+    metrics?: Record<string, unknown>;
   }>;
   nudgesTriggered: Array<{ type: string; [key: string]: unknown }>;
 }
