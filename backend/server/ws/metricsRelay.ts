@@ -93,12 +93,15 @@ export function attachMetricsRelay(server: HttpServer): void {
           rooms.set(roomName, room);
         }
 
-        // Cancel TTL timer if someone rejoins a room in cooldown
+        // Cancel TTL timer if someone rejoins a room in cooldown — reset session data
         const existingRoom = rooms.get(roomName)!;
         if (existingRoom.ttlTimer) {
           clearTimeout(existingRoom.ttlTimer);
           existingRoom.ttlTimer = null;
-          console.log(`[metricsRelay] room "${roomName}" TTL cancelled — participant rejoined`);
+          // Reset accumulator and detector for a fresh session
+          existingRoom.sessionAccumulator = new SessionAccumulator(roomName);
+          existingRoom.interruptionDetector = new InterruptionDetector();
+          console.log(`[metricsRelay] room "${roomName}" TTL cancelled — session data reset for new session`);
         }
 
         // Restart broadcast timer if it was cleared during empty-room cleanup
