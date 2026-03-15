@@ -7,8 +7,8 @@ export interface VadManagerConfig {
 }
 
 const DEFAULT_CONFIG: VadManagerConfig = {
-  positiveSpeechThreshold: 0.5,
-  redemptionMs: 400,  // ms grace period before ending speech
+  positiveSpeechThreshold: 0.35,
+  redemptionMs: 600,  // ms grace period before ending speech
 };
 
 export class VadManager {
