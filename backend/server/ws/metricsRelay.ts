@@ -1,13 +1,17 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import type { Server as HttpServer } from 'http';
+import { InterruptionDetector } from './interruptionDetector.js';
 
 interface RoomConnection {
   ws: WebSocket;
   role: 'tutor' | 'student';
+  clockOffset: number;
 }
 
 interface Room {
   connections: RoomConnection[];
+  interruptionDetector: InterruptionDetector;
+  interruptionBroadcastTimer: ReturnType<typeof setInterval> | null;
 }
 
 export function attachMetricsRelay(server: HttpServer): void {
@@ -28,6 +32,7 @@ export function attachMetricsRelay(server: HttpServer): void {
   wss.on('connection', (ws) => {
     let roomName: string | null = null;
     let role: 'tutor' | 'student' | null = null;
+    let conn: RoomConnection | null = null;
 
     ws.on('message', (raw) => {
       let msg: Record<string, unknown>;
@@ -42,19 +47,47 @@ export function attachMetricsRelay(server: HttpServer): void {
         role = msg.role as 'tutor' | 'student';
 
         if (!rooms.has(roomName)) {
-          rooms.set(roomName, { connections: [] });
+          const detector = new InterruptionDetector();
+          const room: Room = {
+            connections: [],
+            interruptionDetector: detector,
+            interruptionBroadcastTimer: null,
+          };
+
+          // Broadcast interruption counts to tutors every 1s
+          room.interruptionBroadcastTimer = setInterval(() => {
+            const counts = detector.getCounts();
+            const payload = JSON.stringify({ type: 'interruptions', counts });
+            for (const c of room.connections) {
+              if (c.role === 'tutor' && c.ws.readyState === WebSocket.OPEN) {
+                c.ws.send(payload);
+              }
+            }
+          }, 1000);
+
+          rooms.set(roomName, room);
         }
-        rooms.get(roomName)!.connections.push({ ws, role });
+
+        conn = { ws, role, clockOffset: 0 };
+        rooms.get(roomName)!.connections.push(conn);
         console.log(`[metricsRelay] ${role} joined room "${roomName}" (${rooms.get(roomName)!.connections.length} in room)`);
         return;
       }
 
       // Clock-sync: respond immediately with server timestamp
       if (msg.type === 'clock-sync' && typeof msg.clientTs === 'number') {
+        const serverTs = Date.now();
+
+        // Rough server-side offset estimate (one-way, no RTT correction).
+        // Used as fallback when the client's NTP-style clockOffset isn't available.
+        if (conn) {
+          conn.clockOffset = serverTs - (msg.clientTs as number);
+        }
+
         ws.send(JSON.stringify({
           type: 'clock-sync-ack',
           clientTs: msg.clientTs,
-          serverTs: Date.now(),
+          serverTs,
         }));
         return;
       }
@@ -71,6 +104,17 @@ export function attachMetricsRelay(server: HttpServer): void {
         const room = rooms.get(roomName);
         if (!room) return;
 
+        // Feed audio data points into the interruption detector
+        if (data?.source === 'audio' && typeof data.isSpeaking === 'boolean' && typeof data.timestamp === 'number') {
+          const clientClockOffset = (data._trace as Record<string, unknown> | undefined)?.clockOffset;
+          const offset = typeof clientClockOffset === 'number' ? clientClockOffset : (conn?.clockOffset ?? 0);
+          room.interruptionDetector.push({
+            participant: role,
+            isSpeaking: data.isSpeaking,
+            correctedTs: (data.timestamp as number) + offset,
+          });
+        }
+
         if (role === 'student') {
           // Stamp t4 (server forward) just before sending
           if (data?._trace && typeof data._trace === 'object') {
@@ -86,13 +130,12 @@ export function attachMetricsRelay(server: HttpServer): void {
           // Forward student metrics to tutors in the same room
           const source = (data as Record<string, unknown>)?.source;
           console.log(`[metricsRelay] relaying student ${source} metrics to tutors`);
-          for (const conn of room.connections) {
-            if (conn.role === 'tutor' && conn.ws.readyState === WebSocket.OPEN) {
-              conn.ws.send(relay);
+          for (const c of room.connections) {
+            if (c.role === 'tutor' && c.ws.readyState === WebSocket.OPEN) {
+              c.ws.send(relay);
             }
           }
         }
-        // Tutor metrics: stamped and stored (future logging) but NOT echoed back
       }
     });
 
@@ -103,6 +146,10 @@ export function attachMetricsRelay(server: HttpServer): void {
           room.connections = room.connections.filter((c) => c.ws !== ws);
           console.log(`[metricsRelay] ${role} left room "${roomName}" (${room.connections.length} remaining)`);
           if (room.connections.length === 0) {
+            room.interruptionDetector.flush();
+            if (room.interruptionBroadcastTimer) {
+              clearInterval(room.interruptionBroadcastTimer);
+            }
             rooms.delete(roomName);
           }
         }
