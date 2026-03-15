@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { generateRecommendationsTraced } from '../langsmith/tracing.js';
-import { getRoomData } from '../ws/metricsRelay.js';
+import { getRoomData, deleteRoom } from '../ws/metricsRelay.js';
 import type { SummaryInput } from '../../../shared/types.js';
 
 const router = Router();
@@ -23,10 +23,10 @@ router.post('/api/recommendations', async (req, res) => {
     const summary = roomData.accumulator.getSessionSummary(roomData.detector) as SummaryInput;
     const recommendations = await generateRecommendationsTraced(summary);
 
-    // Mark as fetched so TTL cleanup can proceed
-    roomData.accumulator.markFetched();
-
     res.json({ recommendations, summary });
+
+    // Clean up session data now that recommendations have been generated
+    deleteRoom(roomName);
   } catch (err) {
     console.error('[recommendations] Error:', err);
     res.status(500).json({ error: (err as Error).message });

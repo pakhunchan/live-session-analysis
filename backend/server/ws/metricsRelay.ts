@@ -27,6 +27,15 @@ export function getRoomData(roomName: string): { accumulator: SessionAccumulator
   return { accumulator: room.sessionAccumulator, detector: room.interruptionDetector };
 }
 
+/** Delete a room and cancel any pending TTL timer */
+export function deleteRoom(roomName: string): void {
+  const room = rooms.get(roomName);
+  if (!room) return;
+  if (room.ttlTimer) clearTimeout(room.ttlTimer);
+  rooms.delete(roomName);
+  console.log(`[metricsRelay] room "${roomName}" deleted after recommendations fetched`);
+}
+
 export function attachMetricsRelay(server: HttpServer): void {
   const wss = new WebSocketServer({ server, path: '/ws/metrics' });
 
