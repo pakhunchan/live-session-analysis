@@ -2,7 +2,7 @@ import type { ParticipantMetrics } from '../types';
 
 /** Composite engagement score. Returns 0-1, or null when required metrics are unavailable.
  *  When speaking: 80% free + 20% audio energy.
- *  When not speaking: 80% * (1 if eye contact >= 30%, else 0) + 20% expression energy.
+ *  When not speaking: (1 if eye contact >= 40%, else 0) * 0.8 + video energy.
  *  Returns null when the active branch's metrics are unavailable. */
 export function engagementScore(m: ParticipantMetrics): number | null {
   // Cannot determine which branch to use
@@ -16,7 +16,7 @@ export function engagementScore(m: ParticipantMetrics): number | null {
   // Not speaking — requires video metrics
   if (m.eyeContactScore === null) return null;
 
-  const eyeGate = m.eyeContactScore >= 0.3 ? 1 : 0;
-  const exprEnergy = m.expressionEnergy ?? 0;
-  return eyeGate * 0.8 + exprEnergy * 0.2;
+  const eyeGate = m.eyeContactScore >= 0.4 ? 1 : 0;
+  const videoEnergy = m.expressionEnergy ?? 0;
+  return eyeGate * 0.8 + videoEnergy;
 }
