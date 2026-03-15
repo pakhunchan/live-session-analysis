@@ -3,21 +3,26 @@ import type { ParticipantRole } from '../types/metrics';
 import type { LiveKitSetupConfig } from '../types/session';
 import { LiveKitInputAdapter } from '../inputs/LiveKitInputAdapter';
 
+export interface RemoteReadyResult {
+  stream: MediaStream | null;
+  displayName: string | null;
+}
+
 export class LiveKitSessionOrchestrator {
   private adapter: LiveKitInputAdapter | null = null;
-  private remoteReadyResolve: (() => void) | null = null;
+  private remoteReadyResolve: ((result: RemoteReadyResult) => void) | null = null;
 
   async initialize(
     config: LiveKitSetupConfig & { url: string; token: string; earlyStream?: MediaStream },
     streamManager: StreamManager,
   ): Promise<{
     localStream: MediaStream | null;
-    onRemoteReady: Promise<MediaStream | null>;
+    onRemoteReady: Promise<RemoteReadyResult>;
   }> {
     const myRole: ParticipantRole = config.role;
 
-    const onRemoteReady = new Promise<MediaStream | null>((resolve) => {
-      this.remoteReadyResolve = resolve as (() => void);
+    const onRemoteReady = new Promise<RemoteReadyResult>((resolve) => {
+      this.remoteReadyResolve = resolve;
     });
 
     this.adapter = new LiveKitInputAdapter({
@@ -30,16 +35,19 @@ export class LiveKitSessionOrchestrator {
 
     // Wire remote track callback before connecting
     let remoteResolved = false;
-    let remoteStream: MediaStream | null = null;
-    this.adapter.setOnRemoteTrackSubscribed((stream, _remoteVideoElement) => {
-      remoteStream = stream;
+    this.adapter.setOnRemoteTrackSubscribed((stream, _remoteVideoElement, participant) => {
       // Don't register remote stream on StreamManager — each device processes only
       // its own camera/mic. Remote streams are used for playback only (via
       // VideoPreview's stream prop + LiveKit's audio element).
 
       if (!remoteResolved) {
         remoteResolved = true;
-        (this.remoteReadyResolve as ((s: MediaStream | null) => void))?.(remoteStream);
+        let displayName: string | null = null;
+        try {
+          const meta = participant.metadata ? JSON.parse(participant.metadata) : {};
+          displayName = meta.displayName ?? null;
+        } catch { /* ignore parse errors */ }
+        this.remoteReadyResolve?.({ stream, displayName });
       }
     });
 
@@ -59,7 +67,7 @@ export class LiveKitSessionOrchestrator {
     this.adapter?.dispose();
     this.adapter = null;
     // Resolve the promise if remote never connected to avoid dangling
-    this.remoteReadyResolve?.();
+    this.remoteReadyResolve?.({ stream: null, displayName: null });
     this.remoteReadyResolve = null;
   }
 }

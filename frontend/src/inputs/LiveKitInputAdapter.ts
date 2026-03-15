@@ -21,7 +21,12 @@ export interface LiveKitInputAdapterConfig {
   earlyStream?: MediaStream;
 }
 
-type RemoteTrackCallback = (stream: MediaStream, videoElement: HTMLVideoElement) => void;
+export interface RemoteParticipantInfo {
+  identity: string;
+  metadata: string | undefined;
+}
+
+type RemoteTrackCallback = (stream: MediaStream, videoElement: HTMLVideoElement, participant: RemoteParticipantInfo) => void;
 
 export class LiveKitInputAdapter implements InputAdapter {
   private config: LiveKitInputAdapterConfig;
@@ -35,6 +40,7 @@ export class LiveKitInputAdapter implements InputAdapter {
   private fileObjectUrl: string | null = null;
   private ready = false;
   private onRemoteTrackCallback: RemoteTrackCallback | null = null;
+  private lastRemoteParticipant: RemoteParticipantInfo | null = null;
 
   constructor(config: LiveKitInputAdapterConfig) {
     this.config = config;
@@ -51,7 +57,11 @@ export class LiveKitInputAdapter implements InputAdapter {
     // Handle remote tracks
     this.room.on(
       RoomEvent.TrackSubscribed,
-      (track, _publication: RemoteTrackPublication, _participant: RemoteParticipant) => {
+      (track, _publication: RemoteTrackPublication, participant: RemoteParticipant) => {
+        this.lastRemoteParticipant = {
+          identity: participant.identity,
+          metadata: participant.metadata,
+        };
         this.handleRemoteTrack(track);
       },
     );
@@ -201,8 +211,8 @@ export class LiveKitInputAdapter implements InputAdapter {
     this.remoteVideoElement.play().catch(() => {});
 
     // Fire callback so orchestrator can wire up StreamManager
-    if (this.onRemoteTrackCallback && this.remoteStream && this.remoteVideoElement) {
-      this.onRemoteTrackCallback(this.remoteStream, this.remoteVideoElement);
+    if (this.onRemoteTrackCallback && this.remoteStream && this.remoteVideoElement && this.lastRemoteParticipant) {
+      this.onRemoteTrackCallback(this.remoteStream, this.remoteVideoElement, this.lastRemoteParticipant);
     }
   }
 

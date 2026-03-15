@@ -43,6 +43,8 @@ export default function Dashboard() {
   const [myRole, setMyRole] = useState<'tutor' | 'student'>('tutor');
   const [muted, setMuted] = useState(false);
   const [roomName, setRoomName] = useState<string | null>(null);
+  const [myName, setMyName] = useState<string>('');
+  const [remoteName, setRemoteName] = useState<string | null>(null);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -92,6 +94,7 @@ export default function Dashboard() {
       setMyRole(config.role);
       setRoomName(config.roomName);
       setInputSource(config.inputSource);
+      setMyName(config.displayName?.trim() || config.role);
       setStatus('Fetching token...');
 
       if (!LIVEKIT_URL) {
@@ -112,6 +115,7 @@ export default function Dashboard() {
           roomName: config.roomName,
           participantName: participantId,
           role: config.role,
+          displayName: config.displayName?.trim() || undefined,
         }),
       });
 
@@ -150,12 +154,13 @@ export default function Dashboard() {
       }
       setStatus('Waiting for other participant...');
 
-      onRemoteReady.then(async (remoteStream) => {
+      onRemoteReady.then(async ({ stream: remoteStream, displayName: remoteDisplayName }) => {
         if (config.role === 'tutor') {
           setStudentStream(remoteStream);
         } else {
           setTutorStream(remoteStream);
         }
+        if (remoteDisplayName) setRemoteName(remoteDisplayName);
         setStatus('Running');
       });
     } catch (err) {
@@ -219,6 +224,10 @@ export default function Dashboard() {
 
   const isTutorWebcam = myRole === 'tutor' && inputSource === 'webcam';
   const showSetup = !isRunning && !sessionSummary;
+
+  // Derived names
+  const tutorName = myRole === 'tutor' ? myName : (remoteName ?? 'Tutor');
+  const studentName = myRole === 'student' ? myName : (remoteName ?? 'Student');
 
   // Overlay gauge values
   const studentMetrics = snapshot?.student ?? null;
@@ -346,16 +355,16 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Student name badge — bottom-left */}
-              {primaryView === 'student' && (
-                <div style={styles.nameBadge}>Student</div>
-              )}
+              {/* Participant name badge — bottom-left */}
+              <div style={styles.nameBadge}>
+                {primaryView === 'student' ? studentName : tutorName}
+              </div>
 
               {/* PiP self-view — bottom-right */}
               <div style={styles.pipOverlay}>
                 <VideoPreview
                   stream={primaryView === 'student' ? tutorStream : studentStream}
-                  label={primaryView === 'student' ? 'You' : 'Student'}
+                  label={primaryView === 'student' ? myName : studentName}
                   showMesh={showMesh}
                   mirrored={primaryView === 'student' && isTutorWebcam && mirrorTutor}
                   onVideoElement={primaryView === 'student' ? handleTutorVideoElement : handleStudentVideoElement}
@@ -403,6 +412,8 @@ export default function Dashboard() {
               history={history}
               latencyBreakdown={tutor.latencyBreakdown}
               eventBus={tutor.eventBus}
+              tutorName={tutorName}
+              studentName={studentName}
             />
           )}
         </div>

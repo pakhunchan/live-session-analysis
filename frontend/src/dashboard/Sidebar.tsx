@@ -15,6 +15,8 @@ interface SidebarProps {
   history: MetricSnapshot[];
   latencyBreakdown: LatencyBreakdown | null;
   eventBus: EventBus;
+  tutorName: string;
+  studentName: string;
 }
 
 function pct(v: number | null): string {
@@ -95,7 +97,7 @@ function ParticipantRow({ label, metrics, avatarStyle }: {
 
 // ── Main Sidebar ──
 
-export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus }: SidebarProps) {
+export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus, tutorName, studentName }: SidebarProps) {
   const studentEng = snapshot?.student ? engagementScore(snapshot.student) : null;
   const tutorEng = snapshot?.tutor ? engagementScore(snapshot.tutor) : null;
 
@@ -108,11 +110,11 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus 
           <div style={s.heroDonutRow}>
             <div style={s.heroDonut}>
               <SvgDonut value={studentEng} size={110} strokeWidth={8} />
-              <span style={s.donutLabel}>Student</span>
+              <span style={s.donutLabel}>{studentName}</span>
             </div>
             <div style={s.heroDonut}>
               <SvgDonut value={tutorEng} size={110} strokeWidth={8} />
-              <span style={s.donutLabel}>Tutor</span>
+              <span style={s.donutLabel}>{tutorName}</span>
             </div>
           </div>
         </div>
@@ -121,12 +123,12 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus 
         <div style={cardStyle}>
           <div style={s.cardTitle}>Participants</div>
           <ParticipantRow
-            label="Student"
+            label={studentName}
             metrics={snapshot?.student ?? null}
             avatarStyle={{ background: `linear-gradient(135deg, ${colors.blue}, ${colors.lavender})` }}
           />
           <ParticipantRow
-            label="Tutor"
+            label={tutorName}
             metrics={snapshot?.tutor ?? null}
             avatarStyle={{ background: `linear-gradient(135deg, ${colors.mint}, #3bb8d8)` }}
           />

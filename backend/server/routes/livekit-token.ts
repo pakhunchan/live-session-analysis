@@ -5,7 +5,7 @@ const router = Router();
 
 router.post('/api/livekit-token', async (req, res) => {
   try {
-    const { roomName, participantName, role } = req.body;
+    const { roomName, participantName, role, displayName } = req.body;
 
     if (!roomName || !participantName || !role) {
       res.status(400).json({ error: 'roomName, participantName, and role are required' });
@@ -23,7 +23,7 @@ router.post('/api/livekit-token', async (req, res) => {
     const identity = `${role}-${participantName}`;
     const token = new AccessToken(apiKey, apiSecret, {
       identity,
-      metadata: JSON.stringify({ role }),
+      metadata: JSON.stringify({ role, displayName: displayName || participantName }),
     });
 
     token.addGrant({
