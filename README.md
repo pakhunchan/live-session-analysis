@@ -6,6 +6,28 @@ Real-time tutoring session analytics platform. A tutor and student connect via L
 
 ---
 
+## Module Mapping
+
+The project requirements document suggests a flat modular structure. I've implemented those modules within a monorepo layout:
+
+```
+  ┌──────────────────────┬───────────────────────────────────────────┐
+  │    PDF Suggestion    │           My Project Structure            │
+  ├──────────────────────┼───────────────────────────────────────────┤
+  │ video-processor/     │ frontend/src/video/ + frontend/src/audio/ │
+  ├──────────────────────┼───────────────────────────────────────────┤
+  │ metrics-engine/      │ frontend/src/core/                        │
+  ├──────────────────────┼───────────────────────────────────────────┤
+  │ coaching-system/     │ frontend/src/coaching/                    │
+  ├──────────────────────┼───────────────────────────────────────────┤
+  │ analytics-dashboard/ │ frontend/src/dashboard/                   │
+  ├──────────────────────┼───────────────────────────────────────────┤
+  │ docs/                │ docs/                                     │
+  └──────────────────────┴───────────────────────────────────────────┘
+```
+
+---
+
 ## Install & Setup Guide
 
 ### Prerequisites
@@ -18,7 +40,7 @@ Real-time tutoring session analytics platform. A tutor and student connect via L
 ### Clone
 
 ```bash
-git clone https://github.com/<your-org>/live-session-analysis.git
+git clone https://github.com/pakhunchan/live-session-analysis.git
 cd live-session-analysis
 ```
 
