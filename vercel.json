@@ -4,6 +4,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/demo-video",
+      "destination": "https://lsa-demo-assets.s3.us-west-2.amazonaws.com/demo-video.mov"
+    },
+    {
       "source": "/api/:path*",
       "destination": "http://LiveSe-Servi-QipAb0OQKBIb-2082207685.us-west-2.elb.amazonaws.com/api/:path*"
     }
