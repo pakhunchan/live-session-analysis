@@ -6,6 +6,107 @@ Real-time tutoring session analytics platform. A tutor and student connect via L
 
 ---
 
+## Install & Setup Guide
+
+### Prerequisites
+
+- **Node.js 20+** (matches the Docker production image)
+- **npm**
+- **AWS CLI + AWS CDK** (`npm install -g aws-cdk`) — only needed for backend deployment
+- **Docker** — only needed for backend deployment (ECS runs a Docker container)
+
+### Clone
+
+```bash
+git clone https://github.com/<your-org>/live-session-analysis.git
+cd live-session-analysis
+```
+
+### Install All Dependencies
+
+```bash
+npm run install:all
+```
+
+Or install each package individually:
+
+```bash
+cd frontend && npm install
+cd ../backend && npm install
+```
+
+### Environment Variables
+
+#### Frontend (`frontend/`)
+
+Create a `.env.local` in the `frontend/` directory (Vite picks up `VITE_*` vars automatically):
+
+| Variable | Description | Example (local dev) |
+|----------|-------------|---------------------|
+| `VITE_LIVEKIT_URL` | LiveKit SFU WebSocket URL | `wss://livekit.pakhunchan.com` |
+| `VITE_API_BASE_URL` | Backend REST API base URL | `http://localhost:3001` |
+| `VITE_WS_URL` | Backend WebSocket URL | `ws://localhost:3001/ws/metrics` |
+
+Production values are in `frontend/.env.production`.
+
+#### Backend (`.env.local` at repo root)
+
+Create a `.env.local` in the **repo root** (the backend dev script reads `../.env.local`):
+
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | OpenAI API key (used for LLM recommendations) |
+| `LANGCHAIN_API_KEY` | LangSmith API key (used for tracing) |
+| `LIVEKIT_API_KEY` | LiveKit API key (used for token generation) |
+| `LIVEKIT_API_SECRET` | LiveKit API secret (used for token generation) |
+
+The backend also sets `LANGCHAIN_TRACING_V2=true` and `LANGCHAIN_PROJECT=live-session-analysis` in production (see `infra/lib/backend-stack.ts`).
+
+### Run Locally
+
+```bash
+# Start both frontend and backend concurrently
+npm run dev
+
+# Or start them individually:
+npm run dev:frontend   # Vite dev server (frontend/)
+npm run dev:backend    # tsx with .env.local (backend/)
+```
+
+The frontend runs on Vite's default port (usually `http://localhost:5173`).
+The backend listens on port `3001`.
+
+### Run Tests
+
+```bash
+# Frontend unit tests (Vitest)
+npm test
+
+# Watch mode
+cd frontend && npm run test:watch
+```
+
+### Run LLM Evals
+
+```bash
+npm run eval
+```
+
+This runs `backend/evals/run.ts` using the env vars from `.env.local`.
+
+### Production Deploy
+
+```bash
+# Frontend — auto-deploys on push to main (Vercel)
+git push origin main
+
+# Backend — manual CDK deploy (AWS ECS)
+export $(grep -v '^#' .env.local | xargs)
+cd infra && npx cdk deploy
+```
+
+---
+
 ## Architecture
 
 ```mermaid

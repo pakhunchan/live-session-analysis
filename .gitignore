@@ -28,6 +28,14 @@ Thumbs.db
 backend/evals/results.jsonl
 backend/evals/cases/connectivity.yaml
 
+# Local tooling
+.claude/
+.misc/
+.playwright-mcp/
+.vercel/
+design-attempts/
+playwright/
+
 # Logs
 *.log
 npm-debug.log*
