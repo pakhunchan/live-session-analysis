@@ -9,7 +9,7 @@ describe('AmbientBar', () => {
 
 describe('NudgeEngine module', () => {
   it('module exports NudgeEngine class', async () => {
-    const mod = await import('./NudgeEngine');
+    const mod = await import('../coaching/NudgeEngine');
     expect(typeof mod.NudgeEngine).toBe('function');
   });
 });

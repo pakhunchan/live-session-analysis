@@ -9,7 +9,7 @@ import BottomControls from './BottomControls';
 import PostSessionSummary from './PostSessionSummary';
 import { LiveKitSessionOrchestrator } from '../core/LiveKitSessionOrchestrator';
 import { MediaPipeFaceDetector } from '../video/FaceDetector';
-import { fetchRecommendations, generateFallbackRecommendations } from '../core/openaiRecommendations';
+import { fetchRecommendations, generateFallbackRecommendations } from '../core/recommendationsApi';
 import { engagementScore } from '../core/engagement';
 import { colors, font, glassmorphism, layout, radius, metricColor } from './designTokens';
 import type { LiveKitSetupConfig, InputSourceType, SessionSummary } from '../types/session';

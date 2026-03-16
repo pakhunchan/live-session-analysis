@@ -1,3 +1,5 @@
+import type React from 'react';
+
 // Design tokens for attempt-14 dashboard redesign
 
 // ── Colors ──
@@ -87,5 +89,3 @@ export const card: React.CSSProperties = {
   boxShadow: shadows.sm,
   padding: '16px',
 };
-
-import type React from 'react';
