@@ -1,4 +1,5 @@
 import type { SessionSummary } from '../types/session';
+import { EYE_CONTACT_THRESHOLD } from '../../../shared/engagement';
 
 type SummaryInput = Omit<SessionSummary, 'recommendations'>;
 
@@ -33,7 +34,7 @@ export function generateFallbackRecommendations(summary: SummaryInput): string[]
     );
   }
 
-  if ((summary.avgMetrics.student?.eyeContactScore ?? 1) < 0.4) {
+  if ((summary.avgMetrics.student?.eyeContactScore ?? 1) < EYE_CONTACT_THRESHOLD) {
     recs.push(
       'Student eye contact was low on average. Consider checking in more frequently to re-engage, or use visual aids to draw attention back.',
     );

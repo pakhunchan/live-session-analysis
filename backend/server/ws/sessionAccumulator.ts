@@ -1,4 +1,5 @@
 import type { InterruptionDetector } from './interruptionDetector.js';
+import { computeEngagementScore } from '../../../shared/engagement.js';
 
 type ParticipantRole = 'tutor' | 'student';
 
@@ -61,12 +62,12 @@ export interface SessionSummaryData {
 }
 
 function computeEngagement(eyeContact: number | null, isSpeaking: boolean, expressionEnergy: number, voiceEnergy: number): number | null {
-  if (isSpeaking) {
-    return 0.8 + voiceEnergy * 0.2;
-  }
-  if (eyeContact === null) return null;
-  const eyeGate = eyeContact >= 0.4 ? 1 : 0;
-  return eyeGate * 0.8 + expressionEnergy * 0.2;
+  return computeEngagementScore({
+    isSpeaking,
+    eyeContactScore: eyeContact,
+    voiceEnergy,
+    videoEnergy: expressionEnergy,
+  });
 }
 
 function defaultRunning(): ParticipantRunning {

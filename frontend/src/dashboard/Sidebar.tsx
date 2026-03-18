@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { engagementScore } from '../core/engagement';
+import { isLookingAtScreen } from '../../../shared/engagement';
 import SvgDonut from './SvgDonut';
 import SessionStatusBar from './SessionStatusBar';
 import TimelineChart from './TimelineChart';
@@ -32,15 +33,17 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus,
   const [engExpanded, setEngExpanded] = useState(false);
   const [tutorEngExpanded, setTutorEngExpanded] = useState(false);
 
+  const eyeContactBool = (score: number | null) => score === null ? null : isLookingAtScreen(score) ? 1 : 0;
+
   const studentMetricCells = snapshot?.student ? [
-    { label: 'Eye Contact', value: snapshot.student.eyeContactScore },
+    { label: 'Eye Contact', value: eyeContactBool(snapshot.student.eyeContactScore), isBool: true },
     { label: 'Energy', value: snapshot.student.expressionEnergy ?? null },
     { label: 'Talking', value: snapshot.student.isSpeaking === true ? 1 : snapshot.student.isSpeaking === false ? 0 : null, isBool: true },
     { label: 'Face Conf', value: snapshot.student.faceConfidence },
   ] as Array<{ label: string; value: number | null; isBool?: boolean }> : [];
 
   const tutorMetricCells = snapshot?.tutor ? [
-    { label: 'Eye Contact', value: snapshot.tutor.eyeContactScore },
+    { label: 'Eye Contact', value: eyeContactBool(snapshot.tutor.eyeContactScore), isBool: true },
     { label: 'Energy', value: snapshot.tutor.expressionEnergy ?? null },
     { label: 'Talking', value: snapshot.tutor.isSpeaking === true ? 1 : snapshot.tutor.isSpeaking === false ? 0 : null, isBool: true },
     { label: 'Face Conf', value: snapshot.tutor.faceConfidence },

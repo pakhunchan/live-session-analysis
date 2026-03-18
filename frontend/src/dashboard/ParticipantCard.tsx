@@ -1,5 +1,6 @@
 import React from 'react';
 import MetricGauge from './MetricGauge';
+import { isLookingAtScreen } from '../../../shared/engagement';
 import type { ParticipantMetrics, EnergyBreakdown } from '../types';
 
 interface ParticipantCardProps {
@@ -29,7 +30,16 @@ export default function ParticipantCard({ role, metrics, color }: ParticipantCar
       </div>
 
       <div style={styles.gauges}>
-        <MetricGauge label="Eye Contact" value={m.eyeContactScore} size={100} />
+        <div style={styles.boolGauge}>
+          <div style={{
+            ...styles.boolIndicator,
+            background: isLookingAtScreen(m.eyeContactScore) ? '#d1e7dd' : '#f8d7da',
+            color: isLookingAtScreen(m.eyeContactScore) ? '#0f5132' : '#842029',
+          }}>
+            {isLookingAtScreen(m.eyeContactScore) ? 'Yes' : 'No'}
+          </div>
+          <span style={styles.boolLabel}>Eye Contact</span>
+        </div>
         <MetricGauge label="Talk Time" value={m.talkTimePercent} size={100} />
         <MetricGauge label="Energy" value={m.energyScore} size={100} color="#5b8af5" />
       </div>
@@ -213,5 +223,27 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#495057',
     marginTop: '2px',
     textAlign: 'right' as const,
+  },
+  boolGauge: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '0.25rem',
+    width: 100,
+  },
+  boolIndicator: {
+    width: 48,
+    height: 48,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+  },
+  boolLabel: {
+    fontSize: '0.7rem',
+    color: '#6c757d',
+    fontWeight: 500,
   },
 };
