@@ -1,5 +1,4 @@
 import type { SessionSummary } from '../types/session';
-import { EYE_CONTACT_THRESHOLD } from '../../../shared/engagement';
 
 type SummaryInput = Omit<SessionSummary, 'recommendations'>;
 
@@ -27,28 +26,26 @@ export async function fetchRecommendations(
 /** Rule-based recommendations when OpenAI is unavailable */
 export function generateFallbackRecommendations(summary: SummaryInput): string[] {
   const recs: string[] = [];
+  const durationMin = Math.max(1, Math.round(summary.durationMs / 60_000));
+  const interruptionsPerMin = summary.totalInterruptions / durationMin;
 
-  if (summary.talkTimeRatio.tutor > 0.7) {
+  if (summary.engagementScore < 60) {
     recs.push(
-      'Try asking more open-ended questions to increase student participation — the tutor spoke for over 70% of the session.',
+      'Overall engagement was low. Consider starting sessions with a warm-up question and varying your teaching pace.',
+    );
+  } else if (summary.engagementScore < 80) {
+    recs.push(
+      'Engagement was moderate. Try incorporating more interactive elements to keep the student involved.',
     );
   }
 
-  if ((summary.avgMetrics.student?.eyeContactScore ?? 1) < EYE_CONTACT_THRESHOLD) {
+  if (interruptionsPerMin > 0.5) {
     recs.push(
-      'Student eye contact was low on average. Consider checking in more frequently to re-engage, or use visual aids to draw attention back.',
+      'Interruptions were frequent. Practice pausing after questions and use verbal cues like "what do you think?" to signal turns.',
     );
-  }
-
-  if (summary.totalInterruptions > 5) {
+  } else if (interruptionsPerMin > 0.2) {
     recs.push(
-      `There were ${summary.totalInterruptions} interruptions during the session. Practice pausing after questions to give the student time to respond.`,
-    );
-  }
-
-  if ((summary.avgMetrics.student?.energyScore ?? 1) < 0.35) {
-    recs.push(
-      'Student energy was consistently low. Try incorporating brief activities or topic changes to boost engagement.',
+      'Some interruptions were detected. Consider establishing clearer turn-taking guidelines.',
     );
   }
 
@@ -59,9 +56,10 @@ export function generateFallbackRecommendations(summary: SummaryInput): string[]
     );
   }
 
-  if (summary.engagementScore < 40) {
+  const energyDrops = summary.keyMoments.filter(m => m.type === 'energy_shift').length;
+  if (energyDrops >= 3) {
     recs.push(
-      'Overall engagement was below 40%. Consider starting sessions with a warm-up question and varying your teaching pace.',
+      'Student energy dropped multiple times. Try varying your pace or incorporating brief interactive activities.',
     );
   }
 
@@ -72,10 +70,9 @@ export function generateFallbackRecommendations(summary: SummaryInput): string[]
     );
   }
 
-  // Always return at least one recommendation
   if (recs.length === 0) {
     recs.push(
-      'Session metrics look solid! Continue maintaining good eye contact and balanced talk time.',
+      'Session metrics look solid! Keep up the good work.',
     );
   }
 

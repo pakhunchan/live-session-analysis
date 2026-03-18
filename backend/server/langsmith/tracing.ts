@@ -2,15 +2,11 @@ import { traceable } from 'langsmith/traceable';
 import type { SummaryInput } from '../../../shared/types.js';
 
 function formatMetricsPrompt(summary: SummaryInput): string {
+  const durationMin = Math.max(1, Math.round(summary.durationMs / 60_000));
   return JSON.stringify({
-    durationMinutes: Math.round(summary.durationMs / 60_000),
+    durationMinutes: durationMin,
     engagementScore: summary.engagementScore,
-    totalInterruptions: summary.totalInterruptions,
-    talkTimeRatio: summary.talkTimeRatio,
-    avgStudentEyeContact: summary.avgMetrics.student?.eyeContactScore,
-    avgStudentEnergy: summary.avgMetrics.student?.energyScore,
-    avgTutorEyeContact: summary.avgMetrics.tutor?.eyeContactScore,
-    avgTutorEnergy: summary.avgMetrics.tutor?.energyScore,
+    interruptionsPerMinute: +(summary.totalInterruptions / durationMin).toFixed(2),
     keyMoments: summary.keyMoments.map((m) => ({
       type: m.type,
       description: m.description,
@@ -22,7 +18,29 @@ function formatMetricsPrompt(summary: SummaryInput): string {
   });
 }
 
-const SYSTEM_PROMPT = `You are a tutoring coach analyzing a completed tutoring session. Given session metrics, provide 3-5 specific, actionable recommendations for the tutor to improve future sessions. Be concise (1-2 sentences each). Focus on concrete behaviors, not abstract advice. Return a JSON array of strings.`;
+const SYSTEM_PROMPT = `You are a tutoring coach analyzing a completed tutoring session. Given session metrics, provide 3-5 specific, actionable recommendations for the tutor to improve future sessions. Be concise (1-2 sentences each). Focus on concrete behaviors, not abstract advice. Return a JSON array of strings.
+
+IMPORTANT: Only recommend changes for metrics that are actually problematic. Do NOT suggest improvements for metrics that are already in the "good" range.
+
+## Metric interpretation
+
+engagementScore (0-100):
+  >= 80: Good. No action needed.
+  60-79: Moderate. Could improve.
+  < 60: Low. Needs attention.
+
+interruptionsPerMinute:
+  Low (near 0): Smooth turn-taking. No action needed.
+  Moderate (occasional): Brief mention of turn-taking awareness.
+  High (frequent): Strongly recommend explicit turn-taking strategies — pause after questions, use verbal cues like "what do you think?" to signal turns.
+
+keyMoments:
+  energy_drop: Student disengaged. Note the pattern — are drops clustered or spread out?
+  attention_drop: Student looked away for extended period.
+  long_silence: Extended pause — could be thinking time or confusion.
+  interruption_burst: Multiple interruptions in quick succession.
+
+nudgesTriggered: Coaching alerts that fired during the session. If many of the same type, it indicates a recurring issue.`;
 
 function parseRecommendations(content: string): string[] {
   // Try JSON array extraction first (handles markdown code blocks)
