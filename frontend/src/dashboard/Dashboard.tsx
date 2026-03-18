@@ -89,6 +89,8 @@ export default function Dashboard() {
       setRoomName(config.roomName);
       setInputSource(config.inputSource);
       setMyName(config.displayName?.trim() || config.role);
+      // Default main view to the OTHER participant (you want to see them, not yourself)
+      setPrimaryView(config.role === 'tutor' ? 'student' : 'tutor');
       setStatus('Fetching token...');
 
       if (!LIVEKIT_URL) {
@@ -250,7 +252,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={styles.shell}>
+    <div style={{
+      ...styles.shell,
+      ...(!isRunning && sessionSummary ? { overflow: 'auto' } : {}),
+    }}>
       {/* Pulsing dot keyframes */}
       <style>{`@keyframes pulse-live{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
 
@@ -352,7 +357,7 @@ export default function Dashboard() {
               }}>
                 <VideoPreview
                   stream={primaryView === 'student' ? tutorStream : studentStream}
-                  label={primaryView === 'student' ? myName : studentName}
+                  label={primaryView === 'student' ? tutorName : studentName}
                   showMesh={showMesh}
                   mirrored={primaryView === 'student' && isTutorWebcam && mirrorTutor}
                   onVideoElement={primaryView === 'student' ? handleTutorVideoElement : handleStudentVideoElement}
