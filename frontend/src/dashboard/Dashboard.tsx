@@ -72,16 +72,23 @@ export default function Dashboard() {
   const snapshot = tutor.snapshot;
   const history = tutor.history;
 
-  // Track how long since student last spoke
+  // Track how long since each participant last spoke
   const studentLastSpokeRef = useRef<number>(Date.now());
+  const tutorLastSpokeRef = useRef<number>(Date.now());
   const [studentLastSpokeMs, setStudentLastSpokeMs] = useState(0);
+  const [tutorLastSpokeMs, setTutorLastSpokeMs] = useState(0);
   if (snapshot?.student?.isSpeaking) {
     studentLastSpokeRef.current = Date.now();
+  }
+  if (snapshot?.tutor?.isSpeaking) {
+    tutorLastSpokeRef.current = Date.now();
   }
   useEffect(() => {
     if (!isRunning) return;
     const id = setInterval(() => {
-      setStudentLastSpokeMs(Date.now() - studentLastSpokeRef.current);
+      const now = Date.now();
+      setStudentLastSpokeMs(now - studentLastSpokeRef.current);
+      setTutorLastSpokeMs(now - tutorLastSpokeRef.current);
     }, 1000);
     return () => clearInterval(id);
   }, [isRunning]);
@@ -486,6 +493,7 @@ export default function Dashboard() {
               tutorName={tutorName}
               studentName={studentName}
               studentLastSpokeMs={studentLastSpokeMs}
+              tutorLastSpokeMs={tutorLastSpokeMs}
             />
           )}
         </div>

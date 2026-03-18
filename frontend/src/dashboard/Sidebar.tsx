@@ -19,6 +19,7 @@ interface SidebarProps {
   tutorName: string;
   studentName: string;
   studentLastSpokeMs?: number;
+  tutorLastSpokeMs?: number;
 }
 
 function pct(v: number | null): string {
@@ -52,7 +53,7 @@ function lastSpokeBarPct(ms: number): number {
 
 // -- Main Sidebar --
 
-export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus, tutorName, studentName, studentLastSpokeMs = 45000 }: SidebarProps) {
+export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus, tutorName, studentName, studentLastSpokeMs = 0, tutorLastSpokeMs = 0 }: SidebarProps) {
   const studentEng = snapshot?.student ? engagementScore(snapshot.student) : null;
   const tutorEng = snapshot?.tutor ? engagementScore(snapshot.tutor) : null;
   const [engExpanded, setEngExpanded] = useState(false);
@@ -183,8 +184,19 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus,
                 <span style={s.donutSubLabel}>Engagement</span>
               </div>
               <div style={s.heroDonut}>
-                <SvgDonut value={snapshot?.tutor?.expressionEnergy ?? null} size={110} strokeWidth={8} color="#5b8af5" />
-                <span style={s.donutSubLabel}>Energy</span>
+                <div style={s.lastSpokeStack}>
+                  <div style={{ ...s.lastSpokeNumber, color: lastSpokeColor(tutorLastSpokeMs) }}>
+                    {formatLastSpoke(tutorLastSpokeMs)}
+                  </div>
+                  <div style={s.lastSpokeBarTrack}>
+                    <div style={{
+                      ...s.lastSpokeBarFill,
+                      width: `${lastSpokeBarPct(tutorLastSpokeMs)}%`,
+                      background: lastSpokeColor(tutorLastSpokeMs),
+                    }} />
+                  </div>
+                </div>
+                <span style={s.donutSubLabel}>since tutor spoke</span>
               </div>
             </div>
           </button>
