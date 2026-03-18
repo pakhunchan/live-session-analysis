@@ -18,16 +18,41 @@ interface SidebarProps {
   eventBus: EventBus;
   tutorName: string;
   studentName: string;
+  studentLastSpokeMs?: number;
 }
 
 function pct(v: number | null): string {
-  if (v === null) return '–';
+  if (v === null) return '\u2013';
   return `${Math.round(v * 100)}%`;
 }
 
-// ── Main Sidebar ──
+const LAST_SPOKE_MAX_MS = 60 * 60 * 1000; // 60 minutes
 
-export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus, tutorName, studentName }: SidebarProps) {
+function lastSpokeColor(ms: number): string {
+  const min = ms / 60_000;
+  if (min >= 40) return '#ef4444';   // red
+  if (min >= 15) return '#f97316';   // orange
+  if (min >= 5) return '#eab308';    // yellow
+  return '#10b981';                   // green
+}
+
+function formatLastSpoke(ms: number): string {
+  const totalSec = Math.floor(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+}
+
+/** Logarithmic fill: fills quickly at first, slows as it approaches max. */
+function lastSpokeBarPct(ms: number): number {
+  const clamped = Math.min(ms, LAST_SPOKE_MAX_MS);
+  if (clamped <= 0) return 0;
+  return Math.pow(clamped / LAST_SPOKE_MAX_MS, 0.35) * 100;
+}
+
+// -- Main Sidebar --
+
+export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus, tutorName, studentName, studentLastSpokeMs = 45000 }: SidebarProps) {
   const studentEng = snapshot?.student ? engagementScore(snapshot.student) : null;
   const tutorEng = snapshot?.tutor ? engagementScore(snapshot.tutor) : null;
   const [engExpanded, setEngExpanded] = useState(false);
@@ -69,8 +94,19 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus,
                 <span style={s.donutSubLabel}>Engagement</span>
               </div>
               <div style={s.heroDonut}>
-                <SvgDonut value={snapshot?.student?.expressionEnergy ?? null} size={110} strokeWidth={8} color="#5b8af5" />
-                <span style={s.donutSubLabel}>Energy</span>
+                <div style={s.lastSpokeStack}>
+                  <div style={{ ...s.lastSpokeNumber, color: lastSpokeColor(studentLastSpokeMs) }}>
+                    {formatLastSpoke(studentLastSpokeMs)}
+                  </div>
+                  <div style={s.lastSpokeBarTrack}>
+                    <div style={{
+                      ...s.lastSpokeBarFill,
+                      width: `${lastSpokeBarPct(studentLastSpokeMs)}%`,
+                      background: lastSpokeColor(studentLastSpokeMs),
+                    }} />
+                  </div>
+                </div>
+                <span style={s.donutSubLabel}>since student spoke</span>
               </div>
             </div>
           </button>
@@ -88,7 +124,7 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus,
                       <div key={mc.label} style={s.metricCell}>
                         <div style={s.mcLabel}>{mc.label}</div>
                         <div style={{ ...s.mcValue, color: active ? colors.green : colors.textTertiary }}>
-                          {mc.value === null ? '–' : active ? 'Yes' : 'No'}
+                          {mc.value === null ? '\u2013' : active ? 'Yes' : 'No'}
                         </div>
                       </div>
                     );
@@ -166,7 +202,7 @@ export default function Sidebar({ snapshot, history, latencyBreakdown, eventBus,
                       <div key={mc.label} style={s.metricCell}>
                         <div style={s.mcLabel}>{mc.label}</div>
                         <div style={{ ...s.mcValue, color: active ? colors.green : colors.textTertiary }}>
-                          {mc.value === null ? '–' : active ? 'Yes' : 'No'}
+                          {mc.value === null ? '\u2013' : active ? 'Yes' : 'No'}
                         </div>
                       </div>
                     );
@@ -274,6 +310,36 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: '0.72rem',
     fontWeight: 500,
     color: colors.textTertiary,
+  },
+
+  // Vertical Stack — since student spoke
+  lastSpokeStack: {
+    width: 110,
+    height: 110,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  lastSpokeNumber: {
+    fontSize: '1.8rem',
+    fontWeight: 700,
+    fontVariantNumeric: 'tabular-nums',
+    lineHeight: 1,
+    transition: 'color 0.4s ease',
+  },
+  lastSpokeBarTrack: {
+    width: 80,
+    height: 4,
+    background: colors.borderLight,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  lastSpokeBarFill: {
+    height: '100%',
+    borderRadius: 2,
+    transition: 'width 0.6s ease, background 0.4s ease',
   },
 
   // Metric grid

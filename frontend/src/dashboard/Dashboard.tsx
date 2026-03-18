@@ -71,6 +71,20 @@ export default function Dashboard() {
   const isRunning = myRole === 'tutor' ? tutor.isRunning : student.isRunning;
   const snapshot = tutor.snapshot;
   const history = tutor.history;
+
+  // Track how long since student last spoke
+  const studentLastSpokeRef = useRef<number>(Date.now());
+  const [studentLastSpokeMs, setStudentLastSpokeMs] = useState(0);
+  if (snapshot?.student?.isSpeaking) {
+    studentLastSpokeRef.current = Date.now();
+  }
+  useEffect(() => {
+    if (!isRunning) return;
+    const id = setInterval(() => {
+      setStudentLastSpokeMs(Date.now() - studentLastSpokeRef.current);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [isRunning]);
   const streamManager = myRole === 'tutor' ? tutor.streamManager : student.streamManager;
 
   const handleTutorVideoElement = useCallback((el: HTMLVideoElement | null) => {
@@ -471,6 +485,7 @@ export default function Dashboard() {
               eventBus={tutor.eventBus}
               tutorName={tutorName}
               studentName={studentName}
+              studentLastSpokeMs={studentLastSpokeMs}
             />
           )}
         </div>
