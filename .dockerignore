@@ -1,0 +1,9 @@
+frontend/node_modules
+infra/node_modules
+infra/cdk.out
+backend/node_modules
+.claude
+.git
+misc
+docs
+*.md

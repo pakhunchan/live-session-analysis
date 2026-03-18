@@ -87,8 +87,11 @@ export class BackendStack extends cdk.Stack {
         cluster,
         taskImageOptions: {
           image: ecs.ContainerImage.fromAsset(
-            path.join(__dirname, '../../backend'),
-            { platform: cdk.aws_ecr_assets.Platform.LINUX_AMD64 },
+            path.join(__dirname, '../..'),
+            {
+              platform: cdk.aws_ecr_assets.Platform.LINUX_AMD64,
+              file: 'backend/Dockerfile',
+            },
           ),
           containerPort: 3001,
           environment: {
