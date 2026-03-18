@@ -3,12 +3,14 @@ import type { ParticipantRole } from '../types';
 
 export interface VadManagerConfig {
   positiveSpeechThreshold: number;
+  negativeSpeechThreshold: number;
   redemptionMs: number;
 }
 
 const DEFAULT_CONFIG: VadManagerConfig = {
-  positiveSpeechThreshold: 0.35,
-  redemptionMs: 600,  // ms grace period before ending speech
+  positiveSpeechThreshold: 0.5,
+  negativeSpeechThreshold: 0.35,
+  redemptionMs: 350,  // ms grace period before ending speech
 };
 
 export class VadManager {
@@ -30,6 +32,7 @@ export class VadManager {
     const vad = await MicVAD.new({
       getStream: async () => stream,
       positiveSpeechThreshold: this.config.positiveSpeechThreshold,
+      negativeSpeechThreshold: this.config.negativeSpeechThreshold,
       redemptionMs: this.config.redemptionMs,
       onSpeechStart: () => {
         this.speakingState[role] = true;

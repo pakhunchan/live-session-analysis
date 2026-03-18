@@ -44,7 +44,7 @@ export class AudioPipeline {
 
   // Client-side speech debounce — holds isSpeaking=true through brief VAD drops
   private lastSpeakingTs: Record<ParticipantRole, number> = { tutor: 0, student: 0 };
-  private static readonly SPEECH_HOLD_MS = 800;
+  private static readonly SPEECH_HOLD_MS = 300;
 
   constructor(eventBus: EventBus, config: Partial<AudioPipelineConfig> = {}) {
     this.eventBus = eventBus;
@@ -117,6 +117,7 @@ export class AudioPipeline {
       participant,
       timestamp,
       isSpeaking,
+      isSpeakingRaw: rawSpeaking,
       voiceEnergy,
       amplitude: rms,
       volumeVariance,

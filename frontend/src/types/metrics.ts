@@ -86,6 +86,7 @@ export interface MetricDataPoint {
   faceDetected?: boolean;
   faceConfidence?: number;
   isSpeaking?: boolean;
+  isSpeakingRaw?: boolean;
   voiceEnergy?: number;
   amplitude?: number;
   // Expression activity scores (variance-based, computed over window)
