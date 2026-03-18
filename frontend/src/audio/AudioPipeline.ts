@@ -42,10 +42,6 @@ export class AudioPipeline {
 
   private talkTime = new TalkTimeAccumulator();
 
-  // Client-side speech debounce — holds isSpeaking=true through brief VAD drops
-  private lastSpeakingTs: Record<ParticipantRole, number> = { tutor: 0, student: 0 };
-  private static readonly SPEECH_HOLD_MS = 300;
-
   constructor(eventBus: EventBus, config: Partial<AudioPipelineConfig> = {}) {
     this.eventBus = eventBus;
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -65,13 +61,7 @@ export class AudioPipeline {
     // VAD — prefer VadManager (ML-based), fall back to threshold VAD
     // Always update fallback so it stays warm even when VadManager is active
     const fallbackResult = this.fallbackVads[participant].update(rms, chunk.frequencyData, sampleRate);
-    const rawSpeaking = this.vadManager?.isSpeaking(participant) ?? fallbackResult;
-
-    // Client-side speech hold — keep isSpeaking=true for SPEECH_HOLD_MS after last active frame
-    if (rawSpeaking) {
-      this.lastSpeakingTs[participant] = timestamp;
-    }
-    const isSpeaking = rawSpeaking || (timestamp - this.lastSpeakingTs[participant]) < AudioPipeline.SPEECH_HOLD_MS;
+    const isSpeaking = this.vadManager?.isSpeaking(participant) ?? fallbackResult;
 
     // Only add to RMS history while speaking — keeps history clean of ambient noise
     const history = this.rmsHistory[participant];
@@ -117,7 +107,6 @@ export class AudioPipeline {
       participant,
       timestamp,
       isSpeaking,
-      isSpeakingRaw: rawSpeaking,
       voiceEnergy,
       amplitude: rms,
       volumeVariance,

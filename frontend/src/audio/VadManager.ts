@@ -1,5 +1,6 @@
 import type { MicVAD } from '@ricky0123/vad-web';
 import type { ParticipantRole } from '../types';
+import { VAD_REDEMPTION_MS } from '../../../shared/vadTimings';
 
 export interface VadManagerConfig {
   positiveSpeechThreshold: number;
@@ -10,7 +11,7 @@ export interface VadManagerConfig {
 const DEFAULT_CONFIG: VadManagerConfig = {
   positiveSpeechThreshold: 0.5,
   negativeSpeechThreshold: 0.35,
-  redemptionMs: 350,  // ms grace period before ending speech
+  redemptionMs: VAD_REDEMPTION_MS,
 };
 
 export class VadManager {

@@ -160,15 +160,9 @@ export function attachMetricsRelay(server: HttpServer): void {
         if (data?.source === 'audio' && typeof data.isSpeaking === 'boolean' && typeof data.timestamp === 'number') {
           const clientClockOffset = (data._trace as Record<string, unknown> | undefined)?.clockOffset;
           const offset = typeof clientClockOffset === 'number' ? clientClockOffset : (conn?.clockOffset ?? 0);
-          // Use isSpeakingRaw (unheld) for interruption detection to avoid
-          // speech-hold delay inflating overlap duration. Fall back to isSpeaking
-          // for backwards compatibility with older clients.
-          const speakingForInterruption = typeof data.isSpeakingRaw === 'boolean'
-            ? data.isSpeakingRaw
-            : data.isSpeaking;
           room.interruptionDetector.push({
             participant: role,
-            isSpeaking: speakingForInterruption,
+            isSpeaking: data.isSpeaking,
             correctedTs: (data.timestamp as number) + offset,
           });
         }

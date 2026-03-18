@@ -1,3 +1,5 @@
+import { SPEECH_GAP_DEBOUNCE_MS as SPEECH_GAP_DEBOUNCE_MS_CONST, TOTAL_OFFSET_MS } from '../../../shared/vadTimings.js';
+
 type ParticipantRole = 'tutor' | 'student';
 
 interface AudioDataPoint {
@@ -53,11 +55,15 @@ export class InterruptionDetector {
   private lastInterruptedSpeaker: ParticipantRole | null = null;
   private interruptedSpeakerPausedSince = false;
 
-  private readonly MIN_OVERLAP_MS = 500;
+  private readonly SPEECH_GAP_DEBOUNCE_MS = SPEECH_GAP_DEBOUNCE_MS_CONST;
+
+  // MIN_OVERLAP_MS accounts for offset inflation so short backchannels ("yep") aren't counted.
+  private readonly MIN_REAL_OVERLAP_MS = 500;
+  private readonly MIN_OVERLAP_MS = this.MIN_REAL_OVERLAP_MS + TOTAL_OFFSET_MS;
+
   private readonly ESTABLISHED_SPEAKER_MS = 1000;
   private readonly COOLDOWN_CONTINUOUS_MS = 3000;
   private readonly COOLDOWN_PAUSED_MS = 2000;
-  private readonly SPEECH_GAP_DEBOUNCE_MS = 200;
 
   /**
    * Ingest an audio data point. correctedTs = dp.timestamp + clockOffset.
