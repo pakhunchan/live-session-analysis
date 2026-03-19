@@ -51,8 +51,8 @@ export interface SessionSummaryData {
   sessionId: string;
   durationMs: number;
   avgMetrics: {
-    tutor: { eyeContactScore?: number; energyScore?: number };
-    student: { eyeContactScore?: number; energyScore?: number };
+    tutor: { eyeContactScore?: number; energyScore?: number; engagementScore?: number };
+    student: { eyeContactScore?: number; energyScore?: number; engagementScore?: number };
   };
   totalInterruptions: number;
   talkTimeRatio: { tutor: number; student: number };
@@ -108,6 +108,10 @@ export class SessionAccumulator {
   private lastStudentSpeaking = false;
   private silenceStartMs: number | null = null;
   private currentSilenceMs = 0;
+
+  // Student silence tracking (independent of tutor)
+  private studentSilenceStartMs: number | null = null;
+  private studentSilenceReported = false;
 
   constructor(sessionId: string) {
     this.sessionId = sessionId;
@@ -192,6 +196,21 @@ export class SessionAccumulator {
         this.addMoment(dp.timestamp, 'long_silence', 'Extended silence (>1 minute)');
         this.silenceReported = true;
       }
+
+      // Student-specific silence: fires when student hasn't spoken for 5+ minutes
+      if (dp.participant === 'student') {
+        if (dp.isSpeaking) {
+          this.studentSilenceStartMs = null;
+          this.studentSilenceReported = false;
+        } else {
+          if (this.studentSilenceStartMs === null) this.studentSilenceStartMs = dp.timestamp;
+          const studentSilenceMs = dp.timestamp - this.studentSilenceStartMs;
+          if (studentSilenceMs >= 300_000 && !this.studentSilenceReported) {
+            this.addMoment(dp.timestamp, 'long_silence', 'Student has not spoken for over 5 minutes');
+            this.studentSilenceReported = true;
+          }
+        }
+      }
     }
 
     // Energy shift detection (student, rolling window)
@@ -243,6 +262,10 @@ export class SessionAccumulator {
       ? Math.round((studentR.engagementSum / studentR.engagementCount) * 100)
       : 0;
 
+    const tutorEngagement = tutorR.engagementCount > 0
+      ? (tutorR.engagementSum / tutorR.engagementCount)
+      : undefined;
+
     return {
       sessionId: this.sessionId,
       durationMs,
@@ -250,10 +273,12 @@ export class SessionAccumulator {
         tutor: {
           eyeContactScore: tutorR.eyeContactCount > 0 ? tutorR.eyeContactSum / tutorR.eyeContactCount : undefined,
           energyScore: tutorR.energyCount > 0 ? tutorR.energySum / tutorR.energyCount : undefined,
+          engagementScore: tutorEngagement,
         },
         student: {
           eyeContactScore: studentR.eyeContactCount > 0 ? studentR.eyeContactSum / studentR.eyeContactCount : undefined,
           energyScore: studentR.energyCount > 0 ? studentR.energySum / studentR.energyCount : undefined,
+          engagementScore: studentR.engagementCount > 0 ? (studentR.engagementSum / studentR.engagementCount) : undefined,
         },
       },
       totalInterruptions,

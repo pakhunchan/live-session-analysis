@@ -3,8 +3,8 @@ export interface SummaryInput {
   sessionId: string;
   durationMs: number;
   avgMetrics: {
-    tutor: { eyeContactScore?: number; energyScore?: number };
-    student: { eyeContactScore?: number; energyScore?: number };
+    tutor: { eyeContactScore?: number; energyScore?: number; engagementScore?: number };
+    student: { eyeContactScore?: number; energyScore?: number; engagementScore?: number };
   };
   totalInterruptions: number;
   talkTimeRatio: { tutor: number; student: number };

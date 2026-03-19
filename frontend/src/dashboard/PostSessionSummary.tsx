@@ -83,8 +83,8 @@ export default function PostSessionSummary({ summary, history, onNewSession }: P
             <h4 style={{ ...styles.participantLabel, color: '#6610f2' }}>Student</h4>
             <div style={styles.gaugeRow}>
               <MetricGauge
-                label="Eye Contact"
-                value={summary.avgMetrics.student?.eyeContactScore ?? 0}
+                label="Engagement"
+                value={summary.engagementScore / 100}
                 size={100}
               />
               <MetricGauge
@@ -105,8 +105,8 @@ export default function PostSessionSummary({ summary, history, onNewSession }: P
             <h4 style={{ ...styles.participantLabel, color: '#0d6efd' }}>Tutor</h4>
             <div style={styles.gaugeRow}>
               <MetricGauge
-                label="Eye Contact"
-                value={summary.avgMetrics.tutor?.eyeContactScore ?? 0}
+                label="Engagement"
+                value={summary.avgMetrics.tutor?.engagementScore ?? 0}
                 size={100}
               />
               <MetricGauge

@@ -37,7 +37,7 @@ interruptionsPerMinute:
 keyMoments:
   energy_drop: Student disengaged. Note the pattern — are drops clustered or spread out?
   attention_drop: Student looked away for extended period.
-  long_silence: Extended pause — could be thinking time or confusion.
+  long_silence: Extended pause — could be thinking time or confusion. If student-specific, the student hasn't spoken for an extended period.
   interruption_burst: Multiple interruptions in quick succession.
 
 nudgesTriggered: Coaching alerts that fired during the session. If many of the same type, it indicates a recurring issue.`;

@@ -45,6 +45,7 @@ export interface ParticipantMetrics {
   eyeContactScore: number | null;    // 0-1, null when video unavailable
   talkTimePercent: number | null;    // 0-1, null when audio stale
   energyScore: number | null;        // 0-1, voice energy when talking, expression energy when silent
+  engagementScore?: number | null;   // 0-1, per-participant engagement (used in post-session summary)
   expressionEnergy?: number | null;  // 0-1, raw expression energy for display
   isSpeaking: boolean | null;        // null when audio stale
   faceDetected: boolean;

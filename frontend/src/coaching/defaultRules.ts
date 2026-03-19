@@ -11,10 +11,12 @@ import type { NudgeRule } from '../types';
 export const defaultRules: NudgeRule[] = [
   {
     type: 'student_silent',
-    message: 'The student has been quiet for a while — try asking an open-ended question.',
+    message: 'The student hasn\'t spoken in over 10 minutes — try asking an open-ended question to re-engage.',
     priority: 'high',
-    cooldownMs: 120_000, // 2 min between re-fires
-    condition: (snap) => snap.session.currentSilenceDurationMs > 180_000,
+    cooldownMs: Infinity, // fire once per session
+    condition: (snap) =>
+      snap.student.isSpeaking === false &&
+      snap.session.currentSilenceDurationMs > 600_000,
   },
   {
     type: 'low_eye_contact',
