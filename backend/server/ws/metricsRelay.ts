@@ -158,7 +158,9 @@ export function attachMetricsRelay(server: HttpServer): void {
 
         // Feed audio data points into the interruption detector
         if (data?.source === 'audio' && typeof data.isSpeaking === 'boolean' && typeof data.timestamp === 'number') {
-          const clientClockOffset = (data._trace as Record<string, unknown> | undefined)?.clockOffset;
+          // Prefer NTP-style clockOffset (attached to every message), fall back to server-side rough estimate
+          const clientClockOffset = typeof data.clockOffset === 'number' ? data.clockOffset
+            : (data._trace as Record<string, unknown> | undefined)?.clockOffset;
           const offset = typeof clientClockOffset === 'number' ? clientClockOffset : (conn?.clockOffset ?? 0);
           room.interruptionDetector.push({
             participant: role,

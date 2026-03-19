@@ -108,6 +108,8 @@ export interface MetricDataPoint {
   pitchVariance?: number;     // 0-1
   // Set by backend relay — server-receipt timestamp for consistent ordering
   serverTimestamp?: number;
+  // NTP-style clock offset (ms) — attached to every message for timestamp correction
+  clockOffset?: number;
   // Latency trace — sampled at ~1Hz for pipeline diagnostics
   _trace?: LatencyTrace;
 }

@@ -52,17 +52,19 @@ export function useStudentPipeline(): UseStudentPipelineReturn {
     // Wire pipeline events → transport (send all data points to backend)
     bus.on<MetricDataPoint>(EventType.VIDEO_METRICS, (event) => {
       const dp = event.payload;
+      dp.clockOffset = transport.getClockOffset();
       if (dp._trace) {
         dp._trace.t2_sent = Date.now();
-        dp._trace.clockOffset = transport.getClockOffset();
+        dp._trace.clockOffset = dp.clockOffset;
       }
       transport.send(dp);
     });
     bus.on<MetricDataPoint>(EventType.AUDIO_METRICS, (event) => {
       const dp = event.payload;
+      dp.clockOffset = transport.getClockOffset();
       if (dp._trace) {
         dp._trace.t2_sent = Date.now();
-        dp._trace.clockOffset = transport.getClockOffset();
+        dp._trace.clockOffset = dp.clockOffset;
       }
       transport.send(dp);
     });

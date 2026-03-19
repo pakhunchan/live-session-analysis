@@ -69,9 +69,10 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     const bus = eventBusRef.current;
     const unsub = bus.on<MetricDataPoint>(EventType.VIDEO_METRICS, (event) => {
       const dp = event.payload;
+      dp.clockOffset = transportRef.current?.getClockOffset();
       if (dp._trace) {
         dp._trace.t2_sent = Date.now();
-        dp._trace.clockOffset = transportRef.current?.getClockOffset();
+        dp._trace.clockOffset = dp.clockOffset;
       }
       metricsEngineRef.current?.ingestDataPoint(dp);
       transportRef.current?.send(dp);
@@ -84,9 +85,10 @@ export function useMetricsEngine(sessionId = 'session-1'): UseMetricsEngineRetur
     const bus = eventBusRef.current;
     const unsub = bus.on<MetricDataPoint>(EventType.AUDIO_METRICS, (event) => {
       const dp = event.payload;
+      dp.clockOffset = transportRef.current?.getClockOffset();
       if (dp._trace) {
         dp._trace.t2_sent = Date.now();
-        dp._trace.clockOffset = transportRef.current?.getClockOffset();
+        dp._trace.clockOffset = dp.clockOffset;
       }
       metricsEngineRef.current?.ingestDataPoint(dp);
       transportRef.current?.send(dp);
