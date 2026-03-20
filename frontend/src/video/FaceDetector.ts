@@ -68,7 +68,7 @@ export class MediaPipeFaceDetector implements IFaceDetector {
     const { FaceLandmarker, FilesetResolver } = vision;
 
     const filesetResolver = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm'
     );
 
     this.landmarker = await FaceLandmarker.createFromOptions(filesetResolver, {

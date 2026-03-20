@@ -111,7 +111,7 @@ export default function FaceMeshCanvas({ videoRef, mirrored }: FaceMeshCanvasPro
       if (!running) return;
 
       const filesetResolver = await FilesetResolver.forVisionTasks(
-        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm',
+        'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/wasm',
       );
 
       if (!running) return;
